@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+import Logo from '../components/Logo.astro';
+import Sticker from '../components/Sticker.astro';
+---
+<Base home bg="yellow">
+  <h1 class="visually-hidden">Ammi's Kitchen Sheffield</h1>
+  <section class="hero">
+    <Logo class="big-logo" />
+    <div class="stickers">
+      <Sticker kind="takeaway" href="/order" size="clamp(9rem, 22vw, 16rem)" class="s1" />
+      <Sticker kind="lunch" href="/community-lunch" size="clamp(9rem, 20vw, 14rem)" tilt={-4} class="s2" />
+      <Sticker kind="about" href="/about" size="clamp(8rem, 17vw, 12rem)" tilt={-14} class="s3" />
+    </div>
+  </section>
+</Base>
+<style>
+  .hero { position: relative; z-index: 1; min-height: 100svh; padding: 3rem 16px; display: grid; place-items: center; }
+  .hero :global(.big-logo) { width: min(92vw, 1100px); }
+  .stickers { position: absolute; inset: 0; }
+  .stickers :global(.sticker) { position: absolute; }
+  /* Stickers pop in one after another, then sit on top of the wordmark. */
+  .stickers :global(.s1) { left: 5%; bottom: 42%; animation: pop .8s 1.2s var(--ease-out) both; }
+  .stickers :global(.s2) { right: 10%; bottom: 46%; animation: pop .8s 1.45s var(--ease-out) both; }
+  .stickers :global(.s3) { left: 22%; bottom: 14%; animation: pop .8s 1.7s var(--ease-out) both; }
+  @media (min-width: 768px) {
+    .stickers :global(.s2) { right: 36%; }
+    .stickers :global(.s3) { left: auto; right: 6%; bottom: 12%; }
+  }
+  @keyframes pop { from { opacity: 0; scale: .4; } 60% { scale: 1.08; } to { opacity: 1; scale: 1; } }
+  @media (prefers-reduced-motion: reduce) { .stickers :global(.sticker) { animation: none; } }
+</style>

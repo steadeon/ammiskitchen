@@ -1,0 +1,30 @@
+{
+  "_note": "Update this file each fortnight: change currentMenu, orderBefore and featuredChef.",
+  "currentMenu": "puuchanikkaai-pookova-and-urulaikkilongku-karai-parripu-daal-and-special-rice",
+  "orderBefore": "2026-11-24T17:00:00Z",
+  "featuredChef": {
+    "name": "Gowri",
+    "description": "Gowri cooks food from her home country Sri Lanka. Often a little spicier and you'll spot the little green curry leaves. She is an enthusiastic member of the AK team.",
+    "photo": "https://cms.ammiskitchensheffield.org/assets/profile/_thumbnail/Gowri-Chef-pic.jpeg"
+  },
+  "options": [
+    {
+      "type": "BYO Packaging",
+      "price": 16,
+      "description": "Buy for collection from the Common Ground Community Centre and bring your own packaging (bring 3 takeaway containers or buy a tiffin from us!)",
+      "url": "https://www.paypal.com/ncp/payment/GQEWPZUEE7RNW"
+    },
+    {
+      "type": "Collect with Packaging",
+      "price": 18,
+      "description": "Buy for collection from the Common Ground Community Centre with Ammi's Packaging",
+      "url": "https://www.paypal.com/ncp/payment/TYWKT4BMPHH4J"
+    },
+    {
+      "type": "Order for Delivery",
+      "price": 20,
+      "description": "Order now and your food will be delivered on Friday afternoon",
+      "url": "https://www.paypal.com/ncp/payment/JYD8H54U9ZSUL"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+---
+// The animated "Ammi's Kitchen" wordmark. The animation is the original Lottie file
+// from the live site (public/lottie/logo.json); it draws the letters on once and holds.
+interface Props { class?: string; label?: boolean }
+const { class: cls = '' } = Astro.props;
+---
+<span class:list={['logo', cls]} role="img" aria-label="Ammi's Kitchen">
+  <span class="lottie" data-lottie="/lottie/logo.json"></span>
+</span>
+<style>
+  .logo { display: block; aspect-ratio: 1465 / 558; }
+  .lottie, .lottie :global(svg) { display: block; width: 100%; height: 100%; }
+</style>

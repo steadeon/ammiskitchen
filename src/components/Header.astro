@@ -1,0 +1,21 @@
+---
+// Header on inner pages: small logo top-left, sticker navigation top-right.
+import Logo from './Logo.astro';
+import Sticker from './Sticker.astro';
+---
+<header class="site-header" transition:persist="header">
+  <a href="/" class="home-link" aria-label="Ammi's Kitchen home"><Logo /></a>
+  <nav aria-label="Main">
+    <Sticker kind="takeaway" href="/order" size="8.5rem" />
+    <Sticker kind="lunch" href="/community-lunch" size="9rem" tilt={12} />
+    <Sticker kind="about" href="/about" size="8rem" tilt={-20} />
+  </nav>
+</header>
+<style>
+  .site-header { position: relative; z-index: 20; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 16px 0; max-width: 90rem; margin: 0 auto; }
+  .home-link { width: clamp(8rem, 22vw, 15rem); margin-top: .5rem; }
+  nav { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; justify-content: flex-end; }
+  @media (max-width: 640px) {
+    nav { transform: scale(.75); transform-origin: top right; flex-direction: column; align-items: flex-end; }
+  }
+</style>

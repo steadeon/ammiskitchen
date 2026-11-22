@@ -1,0 +1,20 @@
+{
+  "_note": "Copied from the live site on 2026-11-22. Swap for the official export when it arrives.",
+  "name": "Ammi's Kitchen Sheffield",
+  "description": "Ammi's Kitchen is a place where local women, from different cultures, come together to cook family recipes.",
+  "address": "Common Ground Community Centre, Woodstock Road, Nether Edge, Sheffield S7 1HA",
+  "email": "ammiskitchensheffield@gmail.com",
+  "phone": "07599 637889",
+  "facebook": "ammiskitchensheffield",
+  "instagram": "ammis.kitchen.sheffield",
+  "mailchimp": "http://eepurl.com/ijc9Gv",
+  "foodWarning": "Note: This food is prepared in an environment with peanuts, nuts, tree nuts, sesame seeds, wheat, gluten, lactose, milk, mustard, soya, legumes.",
+  "giftVoucher": {
+    "title": "Ammi's Kitchen Gift Voucher!",
+    "text": "The perfect present! Buy one set meal for two to gift to someone special this year.",
+    "buttonText": "Buy a Gift Voucher",
+    "url": "https://py.pl/ovfgq",
+    "image": "https://cms.ammiskitchensheffield.org/assets/images/t/_thumbnail/e-Gift-Voucher-Takeaway-for-Two.png"
+  },
+  "aboutFood": "<p>At Ammi's Kitchen, local women come together to share their family recipes with you, showcasing authentic international cuisines. Profits from the food sales go towards paying for women (not yet working with Ammi's Kitchen) to attend Food and Hygiene classes. Buying this meal also goes towards employing women that may find it difficult to look for a job and also goes towards hardship funding to support local families.</p>\n<p>All of our menus are vegan, dishes that women cook on a regular basis. Food is sourced from local suppliers and arrives fresh the day before cooking.</p>\n<p>Each order is a set meal for two people — usually a curry, a dhaal and basmati rice.</p>"
+}

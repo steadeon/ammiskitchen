@@ -1,0 +1,56 @@
+@import '@fontsource-variable/inter';
+
+/* Brand colours taken from the live site's stylesheet. */
+:root {
+  --turmeric: #fe9907;     /* page background */
+  --brightyellow: #fec807;
+  --darkred: #b62632;      /* main text */
+  --red: #ff3333;
+  --orange: #ff6702;
+  --pink: #f1c4d8;
+  --white: #fff;
+  --radius: 2rem;
+  --font: 'Inter Variable', Inter, system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+* { box-sizing: border-box; }
+html { background: var(--turmeric); color: var(--darkred); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+body { position: relative; margin: 0; min-height: 100vh; overflow-x: hidden; line-height: 1.4; letter-spacing: -0.01em; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+h1, h2, h3 { letter-spacing: -0.025em; line-height: 1.1; margin: 0; font-weight: 600; }
+.container { position: relative; z-index: 1; max-width: 80rem; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 768px) { .container { padding: 0 2rem; } }
+@media (min-width: 1024px) { .container { padding: 0 3rem; } }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Rounded "card" blocks used throughout */
+.card { border-radius: var(--radius); padding: 1.5rem 2rem 1.75rem; }
+.card > * + * { margin-top: 1rem; }
+.card p { margin: 0; }
+.card p + p { margin-top: 1rem; }
+.bg-yellow { background: var(--brightyellow); }
+.bg-pink { background: var(--pink); }
+.bg-darkred { background: var(--darkred); color: var(--white); }
+.bg-red { background: var(--red); color: var(--white); }
+.bg-orange { background: var(--orange); color: var(--white); }
+.bg-turmeric { background: var(--turmeric); color: var(--white); }
+.eyebrow { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .2em; }
+
+.pill-btn {
+  display: inline-block; padding: .6rem 1.2rem; border-radius: 999px; border: 2px solid currentColor;
+  font-weight: 600; text-decoration: none; transition: transform .3s var(--ease-out), background .3s;
+}
+.pill-btn:hover { transform: translateY(-2px) rotate(-1deg); background: rgb(255 255 255 / .25); }
+
+/* Scroll reveal: elements with [data-reveal] rise and fade in once. */
+[data-reveal] { opacity: 0; transform: translateY(2rem); transition: opacity .9s var(--ease-out), transform .9s var(--ease-out); }
+[data-reveal].is-visible { opacity: 1; transform: none; }
+
+.spin-slow { animation: spin 60s linear infinite; }
+@keyframes spin { to { transform: rotate(1turn); } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .spin-slow { animation: none; }
+}

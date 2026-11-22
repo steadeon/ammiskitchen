@@ -1,0 +1,40 @@
+---
+// Photo + pink card listing the dishes in a set meal. Used on the order page and menu pages.
+import site from '../data/site.json';
+interface Props { menu: { title: string; image: string; imageAlt?: string; items: { name: string; description: string }[]; ingredients?: string | null; reheatingInstructions?: string }; showTitle?: boolean }
+const { menu, showTitle = true } = Astro.props;
+---
+<div class="menu-card">
+  <div class="photo" data-reveal>
+    <span class="shadow" aria-hidden="true"></span>
+    <img src={menu.image} alt={menu.imageAlt || menu.title} loading="lazy" width="1600" height="1200" />
+  </div>
+  <div class="details card bg-pink" data-reveal>
+    {showTitle && <h2>{menu.title}</h2>}
+    <ul class="items">
+      {menu.items.map((i) => <li><h3>{i.name}</h3><p>{i.description}</p></li>)}
+    </ul>
+    {menu.ingredients && (
+      <div class="ingredients">
+        <p class="eyebrow">Ingredients</p>
+        <div set:html={menu.ingredients} />
+      </div>
+    )}
+    <p class="warning">{site.foodWarning}</p>
+    {menu.reheatingInstructions && <a class="pill-btn" href={menu.reheatingInstructions} target="_blank" rel="noopener">Reheating instructions (PDF)</a>}
+  </div>
+</div>
+<style>
+  .menu-card { display: grid; gap: 1.5rem; align-items: start; }
+  @media (min-width: 900px) { .menu-card { grid-template-columns: 1fr 1fr; } .details { margin-top: 4rem; } }
+  .photo { position: relative; }
+  .photo img { position: relative; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+  .shadow { position: absolute; inset: 0; background: var(--red); transform: translate(-1rem, -1rem) rotate(-3deg); }
+  .details h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); }
+  .items { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
+  .items h3 { font-size: 1.4rem; font-weight: 500; }
+  .items p { font-size: .9rem; margin: .15rem 0 0; }
+  .ingredients { border-top: 1px solid currentColor; padding-top: 1rem; font-size: .8rem; }
+  .ingredients :global(p) { margin: 0 0 .4rem; }
+  .warning { font-size: .8rem; font-weight: 700; }
+</style>

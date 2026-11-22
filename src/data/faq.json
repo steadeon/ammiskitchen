@@ -1,0 +1,26 @@
+[
+  {
+    "q": "What types of cuisine do you cook?",
+    "a": "<p>To date, Ammi's Kitchen have cooked Punjabi, Iraqi, Sri Lankan, Nepalese and Iranian food.</p>"
+  },
+  {
+    "q": "Do you offer vegetarian and vegan options?",
+    "a": "<p>All our takeaway food is vegan. Please let us know if you have any allergies or other dietary requirements.</p>"
+  },
+  {
+    "q": "How do I make an order?",
+    "a": "<p>We cook fortnightly on Fridays during school term times (most of the chefs have children to look after). You can order <a href=\"/order\">here</a> and pay on PayPal, or email us on <a href=\"mailto:ammiskitchensheffield@gmail.com\">ammiskitchensheffield@gmail.com</a> and pay on pick up by cash or card. We take orders up until 5pm on the Tuesday before we cook.</p>"
+  },
+  {
+    "q": "What are your takeaway / delivery options?",
+    "a": "<p>We offer three options for the Ammi's Kitchen takeaway - each option has its own PayPal link in the <strong><a href=\"/order\">Order Takeaway</a></strong> section:</p>\n<ol><li>Pick up at Common Ground and BYO packaging (tiffin or three containers)</li><li>Pick up at Common Ground and use our packaging</li><li>Delivered in our packaging</li></ol>"
+  },
+  {
+    "q": "What dates are you running the takeaway?",
+    "a": "<p>Ammi's Kitchen takeaway is fortnightly on Fridays during term times. The takeaways in the New Year will be on:</p>\n<ul><li>Jan - 16th and 30th</li><li>Feb - 13th and 27th</li><li>March - 13th and 27th</li><li>April - 24th</li><li>May - 8th and 22nd</li><li>June - 12th and 26th</li><li>July - 10th</li></ul>"
+  },
+  {
+    "q": "Do Ammi's Kitchen sell their food at any other times?",
+    "a": "<p>Yes. Ammi's Kitchen run a community lunch at Common Ground, Woodstock Road, S7 1HA on alternate Fridays to the takeaway. Everyone is welcome for lunch. It is free if on benefits / NRPF or pay as you feel.</p>"
+  }
+]

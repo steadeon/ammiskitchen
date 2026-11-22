@@ -1,0 +1,48 @@
+---
+import Base from '../layouts/Base.astro';
+import Sticker from '../components/Sticker.astro';
+import Accordion from '../components/Accordion.astro';
+import about from '../data/about.json';
+import faq from '../data/faq.json';
+import site from '../data/site.json';
+---
+<Base title="About" bg="yellow">
+  <div class="container">
+    <div class="title"><Sticker kind="about" size="12rem" tilt={-4} heading /></div>
+    <div class="layout">
+      <div class="text-wrap" data-reveal>
+        <span class="shadow" aria-hidden="true"></span>
+        <div class="card bg-yellow big-text" set:html={about.text} />
+      </div>
+      <figure class="photo" data-reveal>
+        <img src={about.image} alt={about.imageAlt} width={about.imageWidth} height={about.imageHeight} loading="lazy" />
+      </figure>
+      <div class="card bg-pink social" data-reveal>
+        <p>Follow us on social media to find out about our latest events</p>
+        <p><a href={`https://instagram.com/${site.instagram}`} target="_blank" rel="noopener">Instagram: {site.instagram}</a></p>
+        <p><a href={`https://facebook.com/${site.facebook}`} target="_blank" rel="noopener">Facebook: {site.facebook}</a></p>
+      </div>
+    </div>
+    <section class="faq">
+      <h2 class="visually-hidden">Questions</h2>
+      <Accordion items={faq} />
+    </section>
+  </div>
+</Base>
+<style>
+  .title { padding: 3rem 0 4rem; display: flex; justify-content: center; }
+  .layout { display: grid; gap: 2rem; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1024px) {
+    .layout { grid-template-columns: repeat(3, 1fr); }
+    .text-wrap { grid-column: 1 / span 2; }
+    .photo { grid-column: 2 / span 2; transform: translateY(-3rem); }
+    .social { grid-column: 2 / span 2; max-width: 30rem; }
+  }
+  .text-wrap { position: relative; }
+  .shadow { position: absolute; inset: 2rem -1rem -1.5rem 3rem; background: var(--pink); border-radius: var(--radius); transform: rotate(2deg); }
+  .big-text { position: relative; font-size: clamp(1.25rem, 2.6vw, 1.9rem); font-weight: 500; line-height: 1.15; letter-spacing: -0.025em; }
+  .photo { margin: 0; }
+  .photo img { border-radius: var(--radius); }
+  .social { font-size: clamp(1.1rem, 2vw, 1.5rem); font-weight: 500; line-height: 1.2; }
+  .faq { margin-top: 6rem; max-width: 46rem; margin-inline: auto; }
+</style>

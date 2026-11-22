@@ -1,0 +1,21 @@
+---
+// The large soft shapes behind every page. Which one shows is set per page
+// (data-bg on <html>), and they cross-fade over 2s when you move between pages,
+// as on the old site. transition:persist keeps them alive across page changes.
+import BgWhite from '../assets/svg/bg-white.svg?raw';
+import BgYellow from '../assets/svg/bg-yellow.svg?raw';
+import BgRed from '../assets/svg/bg-red.svg?raw';
+---
+<div class="bg" aria-hidden="true" transition:persist="bg">
+  <div class="shape white" set:html={BgWhite} />
+  <div class="shape yellow" set:html={BgYellow} />
+  <div class="shape red" set:html={BgRed} />
+</div>
+<style>
+  .bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .shape { position: absolute; top: 0; left: 0; width: 100%; opacity: 0; transition: opacity 2s ease; }
+  .shape :global(svg) { width: 100%; height: auto; display: block; }
+  :global(html[data-bg='white']) .white,
+  :global(html[data-bg='yellow']) .yellow,
+  :global(html[data-bg='red']) .red { opacity: 1; }
+</style>

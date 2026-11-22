@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import Sticker from '../components/Sticker.astro';
+import Accordion from '../components/Accordion.astro';
+import faq from '../data/faq.json';
+import site from '../data/site.json';
+---
+<Base title="FAQ" bg="none">
+  <div class="container narrow">
+    <div class="title"><Sticker kind="food" size="13rem" heading /></div>
+    <Accordion items={faq} />
+    <div class="card bg-pink about-food" data-reveal set:html={site.aboutFood} />
+  </div>
+</Base>
+<style>
+  .narrow { max-width: 50rem; }
+  .title { display: flex; justify-content: center; padding: 3rem 0 4rem; }
+  .about-food { margin-top: 4rem; font-size: 1.15rem; font-weight: 500; }
+</style>
