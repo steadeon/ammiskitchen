@@ -65,7 +65,7 @@ Workers & Pages → Create → Import a repository → `steadeon/ammiskitchen`, 
 
 | Setting | Value |
 |---|---|
-| Project name | `ammis-kitchen` (matches the Worker name the build generates) |
+| Project name | `ammiskitchen` (must match `name` in `wrangler.jsonc`) |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
 | Non-production branch deploy command | `npx wrangler versions upload` |
