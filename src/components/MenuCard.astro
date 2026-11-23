@@ -1,13 +1,14 @@
 ---
 // Photo + pink card listing the dishes in a set meal. Used on the order page and menu pages.
-import site from '../data/site.json';
-interface Props { menu: { title: string; image: string; imageAlt?: string; items: { name: string; description: string }[]; ingredients?: string | null; reheatingInstructions?: string }; showTitle?: boolean }
+import { getSettings, type Menu } from '../lib/content';
+interface Props { menu: Menu; showTitle?: boolean }
+const site = await getSettings();
 const { menu, showTitle = true } = Astro.props;
 ---
 <div class="menu-card">
   <div class="photo" data-reveal>
     <span class="shadow" aria-hidden="true"></span>
-    <img src={menu.image} alt={menu.imageAlt || menu.title} loading="lazy" width="1600" height="1200" />
+    <img src={menu.image ?? ''} alt={menu.imageAlt || menu.title} loading="lazy" width="1600" height="1200" />
   </div>
   <div class="details card bg-pink" data-reveal>
     {showTitle && <h2>{menu.title}</h2>}

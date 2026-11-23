@@ -2,8 +2,9 @@
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import Accordion from '../components/Accordion.astro';
-import faq from '../data/faq.json';
-import site from '../data/site.json';
+import { getFaqs, getSettings } from '../lib/content';
+const faq = await getFaqs();
+const site = await getSettings();
 ---
 <Base title="FAQ" bg="none">
   <div class="container narrow">

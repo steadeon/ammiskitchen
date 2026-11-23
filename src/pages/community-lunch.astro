@@ -1,8 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
-import lunch from '../data/community-lunch.json';
-import site from '../data/site.json';
+import { getCommunityLunch, getSettings } from '../lib/content';
+const lunch = await getCommunityLunch();
+const site = await getSettings();
 const fmt = (s: string) => new Date(s + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' });
 ---
 <Base title="Community Lunch" bg="white">

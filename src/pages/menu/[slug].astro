@@ -1,10 +1,10 @@
 ---
-import { getCollection } from 'astro:content';
+import { getMenus } from '../../lib/content';
 import Base from '../../layouts/Base.astro';
 import MenuCard from '../../components/MenuCard.astro';
 
 export async function getStaticPaths() {
-  return (await getCollection('menus')).map((m) => ({ params: { slug: m.id }, props: { menu: m.data } }));
+  return (await getMenus()).map((menu) => ({ params: { slug: menu.slug }, props: { menu } }));
 }
 const { menu } = Astro.props;
 ---

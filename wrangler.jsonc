@@ -1,0 +1,6 @@
+// Cloudflare Worker settings. The Astro build fills in the rest (entry point, static assets)
+// and writes the final config to dist/server/wrangler.json.
+{
+  "name": "ammiskitchen",
+  "compatibility_date": "2026-11-17"
+}

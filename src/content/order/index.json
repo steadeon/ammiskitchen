@@ -1,12 +1,7 @@
 {
-  "_note": "Update this file each fortnight: change currentMenu, orderBefore and featuredChef.",
   "currentMenu": "puuchanikkaai-pookova-and-urulaikkilongku-karai-parripu-daal-and-special-rice",
-  "orderBefore": "2026-11-24T17:00:00Z",
-  "featuredChef": {
-    "name": "Gowri",
-    "description": "Gowri cooks food from her home country Sri Lanka. Often a little spicier and you'll spot the little green curry leaves. She is an enthusiastic member of the AK team.",
-    "photo": "https://cms.ammiskitchensheffield.org/assets/profile/_thumbnail/Gowri-Chef-pic.jpeg"
-  },
+  "orderBefore": "2026-11-24T17:00",
+  "featuredChef": "gowri",
   "options": [
     {
       "type": "BYO Packaging",
