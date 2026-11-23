@@ -10,6 +10,9 @@ if (process.env.SANITY_DISABLED) {
 
 execSync('npm run build -w studio', { stdio: 'inherit' });
 
-// The Studio is a single-page app: send every /admin/* address to its index page.
-appendFileSync('dist/_redirects', '/admin/* /admin/index.html 200\n');
+// The Studio is a single-page app, so deep links like /admin/structure/menu must load its
+// index page. One rule per Studio tool, because a catch-all /admin/* rule would also match
+// /admin/ itself, which Cloudflare rejects as an infinite loop.
+const tools = ['structure', 'vision', 'intent'];
+appendFileSync('dist/_redirects', tools.map((t) => `/admin/${t}/* /admin/ 200\n`).join(''));
 console.log('[studio] Built into dist/admin');
