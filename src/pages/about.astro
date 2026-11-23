@@ -2,9 +2,10 @@
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import Accordion from '../components/Accordion.astro';
-import about from '../data/about.json';
-import faq from '../data/faq.json';
-import site from '../data/site.json';
+import { getAbout, getFaqs, getSettings } from '../lib/content';
+const about = await getAbout();
+const faq = await getFaqs();
+const site = await getSettings();
 ---
 <Base title="About" bg="yellow">
   <div class="container">
@@ -15,7 +16,7 @@ import site from '../data/site.json';
         <div class="card bg-yellow big-text" set:html={about.text} />
       </div>
       <figure class="photo" data-reveal>
-        <img src={about.image} alt={about.imageAlt} width={about.imageWidth} height={about.imageHeight} loading="lazy" />
+        <img src={about.image ?? ''} alt={about.imageAlt} width="1600" height="1067" loading="lazy" />
       </figure>
       <div class="card bg-pink social" data-reveal>
         <p>Follow us on social media to find out about our latest events</p>

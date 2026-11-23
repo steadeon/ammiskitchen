@@ -1,17 +1,18 @@
 ---
-import { getCollection, getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import MenuCard from '../components/MenuCard.astro';
-import order from '../data/order.json';
-import site from '../data/site.json';
+import { getMenus, getOrder, getSettings } from '../lib/content';
 
-const current = await getEntry('menus', order.currentMenu);
-if (!current) throw new Error(`order.json currentMenu "${order.currentMenu}" has no file in src/data/menus/`);
-const past = (await getCollection('menus')).filter((m) => m.id !== order.currentMenu).sort((a, b) => a.data.order - b.data.order);
+const order = await getOrder();
+const site = await getSettings();
+const current = order.currentMenu;
+const chef = order.featuredChef;
+const past = (await getMenus()).filter((m) => m.slug !== current.slug);
 
-const d = new Date(order.orderBefore);
-const tz = { timeZone: 'Europe/London' } as const;
+// The deadline is typed in UK time, so format it as-is (treated as UTC) to avoid any shift.
+const d = new Date(order.orderBefore + 'Z');
+const tz = { timeZone: 'UTC' } as const;
 const chips = [
   d.toLocaleDateString('en-GB', { ...tz, day: 'numeric' }),
   d.toLocaleDateString('en-GB', { ...tz, month: 'short' }),
@@ -32,7 +33,7 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
     </div>
 
     <section class="section">
-      <MenuCard menu={current.data} />
+      <MenuCard menu={current} />
     </section>
 
     <section class="section options">
@@ -40,7 +41,7 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
       {order.options.map((o) => (
         <a class="option" href={o.url} target="_blank" rel="noopener" data-reveal>
           <h3>{o.type}</h3>
-          <p class="price">£{o.price.toFixed(2)}</p>
+          <p class="price">£{(o.price ?? 0).toFixed(2)}</p>
           <p>{o.description}</p>
           <span class="pay">Pay with PayPal →</span>
         </a>
@@ -50,17 +51,19 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
 
     <section class="section split">
       <div class="card bg-yellow about-food" data-reveal set:html={site.aboutFood} />
-      <div class="chef" data-reveal>
-        <img src={order.featuredChef.photo} alt={order.featuredChef.name} width="120" height="120" loading="lazy" />
-        <p class="eyebrow">Meet the chef<br />{order.featuredChef.name}</p>
-        <p>{order.featuredChef.description}</p>
-      </div>
+      {chef && (
+        <div class="chef" data-reveal>
+          {chef.photo && <img src={chef.photo} alt={chef.name} width="120" height="120" loading="lazy" />}
+          <p class="eyebrow">Meet the chef<br />{chef.name}</p>
+          <p>{chef.description}</p>
+        </div>
+      )}
     </section>
 
     <section class="section voucher" data-reveal>
       <span class="shadow" aria-hidden="true"></span>
       <div class="card bg-pink voucher-card">
-        <img src={site.giftVoucher.image} alt="" width="400" height="400" loading="lazy" />
+        <img src={site.giftVoucher.image ?? ''} alt="" width="400" height="400" loading="lazy" />
         <div>
           <h2>{site.giftVoucher.title}</h2>
           <p><em>{site.giftVoucher.text}</em></p>
@@ -73,9 +76,9 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
       <h2 class="past-heading">Past menus</h2>
       <div class="past">
         {past.map((m) => (
-          <a class="past-item" href={`/menu/${m.id}`} data-reveal>
-            <img src={m.data.image} alt="" loading="lazy" width="800" height="600" />
-            <p class="eyebrow">{m.data.title}</p>
+          <a class="past-item" href={`/menu/${m.slug}`} data-reveal>
+            <img src={m.image ?? ''} alt="" loading="lazy" width="800" height="600" />
+            <p class="eyebrow">{m.title}</p>
           </a>
         ))}
       </div>

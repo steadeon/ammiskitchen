@@ -1,12 +1,12 @@
 # Ammi's Kitchen Sheffield website
 
 A rebuild of ammiskitchensheffield.org as a static [Astro](https://astro.build) site.
-It builds to plain HTML/CSS files that can be hosted anywhere (Netlify, Cloudflare Pages,
-GitHub Pages, or any web server), with no database or CMS to maintain.
+Every public page builds to plain HTML/CSS. The only server code is the small content editor at
+`/admin`, which runs as a Cloudflare Worker. There is no database: content lives in this repo.
 
 ## Run it locally
 
-Needs Node.js 20 or newer.
+Needs Node.js 22 or newer.
 
 ```sh
 npm install
@@ -16,20 +16,25 @@ npm run build     # outputs the finished site to dist/
 
 ## Editing content
 
-All text lives in small JSON files in `src/data/` — no code changes needed:
+Staff edit the site at **/admin** (for example `https://ammiskitchensheffield.org/admin`) using
+simple forms powered by [Keystatic](https://keystatic.com). Saving a form commits the change to
+GitHub, and Cloudflare rebuilds and publishes the site a minute or two later. No code involved.
 
-| What | File |
-|---|---|
-| Contact details, socials, allergy note, gift voucher, "about the food" text | `src/data/site.json` |
-| **This fortnight's takeaway**: current menu, order deadline, featured chef, PayPal links and prices | `src/data/order.json` |
-| Community lunch intro and dates | `src/data/community-lunch.json` |
-| About page text and photo | `src/data/about.json` |
-| FAQ questions | `src/data/faq.json` |
-| Set meals (one file each; file name = page address `/menu/<name>`) | `src/data/menus/*.json` |
+| Editor section | What it controls | File(s) |
+|---|---|---|
+| This fortnight's takeaway | Menu on sale, order deadline, featured chef, PayPal options | `src/content/order/` |
+| Set meals | One entry per menu (dishes, photo, ingredients, reheating PDF) | `src/content/menus/*.mdoc` |
+| Chefs | Name, photo and blurb for "Meet the chef" | `src/content/chefs/*.json` |
+| About page / Community lunch page | Page text, photo, lunch dates | `src/content/about/`, `src/content/community-lunch/` |
+| FAQs | One entry per question | `src/content/faqs/*.mdoc` |
+| Contact details & shared text | Address, socials, allergy note, gift voucher, "about the food" | `src/content/settings/` |
 
-**Each fortnight:** add a new file in `src/data/menus/` (copy an existing one), then in
-`order.json` set `currentMenu` to its file name (without `.json`), and update `orderBefore`
-and `featuredChef`. Rebuild/redeploy.
+**Each fortnight:** add the new menu under *Set meals*, then in *This fortnight's takeaway* pick
+it as "Menu on sale now" and update the deadline and chef.
+
+Running `npm run dev` and opening http://127.0.0.1:4321/admin edits the files on your own
+computer instead. See [docs/content-editing.md](docs/content-editing.md) for how sign-in and
+hosting are set up.
 
 ## Brand and animation
 
@@ -42,7 +47,8 @@ and `featuredChef`. Rebuild/redeploy.
 
 ## Before going live
 
-1. Run `node scripts/download-images.mjs` to copy photos and PDFs off the old CMS
-   (the site currently loads them from `cms.ammiskitchensheffield.org`, which will go away).
+1. Copy photos and PDFs off the old CMS into `public/media/` (the site still loads them from
+   `cms.ammiskitchensheffield.org`, which will go away), then point each entry at its local copy
+   and remove the "link (old website)" fields from `keystatic.config.tsx`.
 2. Swap in the official assets from the previous developer when they arrive.
 3. Set `site` in `astro.config.mjs` to the real domain.

@@ -1,0 +1,18 @@
+{
+  "name": "Ammi's Kitchen Sheffield",
+  "description": "Ammi's Kitchen is a place where local women, from different cultures, come together to cook family recipes.",
+  "address": "Common Ground Community Centre, Woodstock Road, Nether Edge, Sheffield S7 1HA",
+  "email": "ammiskitchensheffield@gmail.com",
+  "phone": "07599 637889",
+  "facebook": "ammiskitchensheffield",
+  "instagram": "ammis.kitchen.sheffield",
+  "mailchimp": "http://eepurl.com/ijc9Gv",
+  "foodWarning": "Note: This food is prepared in an environment with peanuts, nuts, tree nuts, sesame seeds, wheat, gluten, lactose, milk, mustard, soya, legumes.",
+  "giftVoucher": {
+    "title": "Ammi's Kitchen Gift Voucher!",
+    "text": "The perfect present! Buy one set meal for two to gift to someone special this year.",
+    "buttonText": "Buy a Gift Voucher",
+    "url": "https://py.pl/ovfgq",
+    "imageUrl": "https://cms.ammiskitchensheffield.org/assets/images/t/_thumbnail/e-Gift-Voucher-Takeaway-for-Two.png"
+  }
+}
