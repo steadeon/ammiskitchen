@@ -108,8 +108,10 @@ Add each as type **Secret** (encrypted; never put these in the code):
 | `STAFF_EMAIL` | Who gets new-order alerts, comma-separated |
 
 Without the Turnstile keys the form uses Cloudflare's test keys (always passes). Without
-`RESEND_API_KEY` orders are saved but no emails are sent. `EMAIL_FROM` in `wrangler.jsonc` must use a
-domain verified in Resend.
+`RESEND_API_KEY` orders are saved but no emails are sent. While `EMAIL_FROM` in `wrangler.jsonc` is
+empty, emails use Resend's test sender, which only delivers to the Resend account's own address (fine for
+testing). **At go-live:** verify ammiskitchensheffield.org in Resend (Domains → Add domain, then add its DNS
+records), set `EMAIL_FROM` to `Ammi's Kitchen <orders@ammiskitchensheffield.org>`, and add the Turnstile keys.
 
 **Important:** the Sanity webhook that rebuilds the site must ignore orders, or every order triggers a
 rebuild. Its filter should be: `!(_id in path("drafts.**")) && _type != "order"`.
