@@ -21,9 +21,9 @@ const env = (key: string): string | undefined => (import.meta.env?.[key] as stri
 
 const projectId = env('SANITY_DISABLED') ? '' : env('SANITY_STUDIO_PROJECT_ID') || project.projectId;
 const dataset = env('SANITY_STUDIO_DATASET') || project.dataset;
-// On Cloudflare Pages (or any CI) a Sanity error stops the build, so the live site never
+// On Cloudflare (Pages or Workers Builds) or any CI a Sanity error stops the build, so the live site never
 // silently goes back to old content. Locally we just warn and use the JSON files.
-const strict = Boolean(process.env.CF_PAGES || process.env.CI);
+const strict = Boolean(process.env.CF_PAGES || process.env.WORKERS_CI || process.env.CI);
 
 export const sanityEnabled = Boolean(projectId);
 
