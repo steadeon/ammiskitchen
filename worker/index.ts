@@ -94,7 +94,14 @@ const loadTakeaway = (env: Env) =>
 async function status(env: Env) {
   const t = await loadTakeaway(env);
   const s = schedule(t?.takeawayDate, t?.orderBefore);
-  return json({ ok: true, open: isOpen(s), ...s, siteKey: env.TURNSTILE_SITE_KEY || TEST_SITE_KEY });
+  // Which settings are present (true/false only, never their values), to help with setup.
+  const configured = {
+    sanityToken: Boolean(env.SANITY_WRITE_TOKEN),
+    turnstile: Boolean(env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY),
+    resend: Boolean(env.RESEND_API_KEY),
+    staffEmail: Boolean(env.STAFF_EMAIL),
+  };
+  return json({ ok: true, open: isOpen(s), ...s, siteKey: env.TURNSTILE_SITE_KEY || TEST_SITE_KEY, configured });
 }
 
 // ---- POST: place an order -------------------------------------------------------------
