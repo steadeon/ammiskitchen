@@ -1,5 +1,6 @@
 ---
-import site from '../data/site.json';
+import { getSite } from '../lib/cms';
+const site = await getSite();
 ---
 <footer class="site-footer">
   <div class="container grid">

@@ -3,11 +3,11 @@ import { getCollection, getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import MenuCard from '../components/MenuCard.astro';
-import order from '../data/order.json';
-import site from '../data/site.json';
+import { getOrder, getSite } from '../lib/cms';
 
+const [order, site] = await Promise.all([getOrder(), getSite()]);
 const current = await getEntry('menus', order.currentMenu);
-if (!current) throw new Error(`order.json currentMenu "${order.currentMenu}" has no file in src/data/menus/`);
+if (!current) throw new Error(`Current menu "${order.currentMenu}" has no matching set meal`);
 const past = (await getCollection('menus')).filter((m) => m.id !== order.currentMenu).sort((a, b) => a.data.order - b.data.order);
 
 const d = new Date(order.orderBefore);
@@ -51,7 +51,7 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
     <section class="section split">
       <div class="card bg-yellow about-food" data-reveal set:html={site.aboutFood} />
       <div class="chef" data-reveal>
-        <img src={order.featuredChef.photo} alt={order.featuredChef.name} width="120" height="120" loading="lazy" />
+        {order.featuredChef.photo && <img src={order.featuredChef.photo} alt={order.featuredChef.name} width="120" height="120" loading="lazy" />}
         <p class="eyebrow">Meet the chef<br />{order.featuredChef.name}</p>
         <p>{order.featuredChef.description}</p>
       </div>

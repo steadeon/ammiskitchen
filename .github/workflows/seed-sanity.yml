@@ -1,0 +1,30 @@
+# Copies the current website content into Sanity (one-off, safe to re-run: it only
+# creates documents that don't exist yet). Needs a repository secret SANITY_WRITE_TOKEN
+# holding an Editor token from sanity.io/manage → API → Tokens.
+name: Import content into Sanity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-p681px]
+    paths: [studio/scripts/seed.mjs, .github/workflows/seed-sanity.yml]
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Import
+        env:
+          SANITY_WRITE_TOKEN: ${{ secrets.SANITY_WRITE_TOKEN }}
+        run: |
+          if [ -z "$SANITY_WRITE_TOKEN" ]; then
+            echo "::warning::Add the SANITY_WRITE_TOKEN repository secret, then re-run this workflow."
+            exit 0
+          fi
+          npm run seed
