@@ -3,6 +3,7 @@ import { getCollection, getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import MenuCard from '../components/MenuCard.astro';
+import OrderForm from '../components/OrderForm.astro';
 import { getOrder, getSite } from '../lib/cms';
 
 const [order, site] = await Promise.all([getOrder(), getSite()]);
@@ -10,15 +11,16 @@ const current = await getEntry('menus', order.currentMenu);
 if (!current) throw new Error(`Current menu "${order.currentMenu}" has no matching set meal`);
 const past = (await getCollection('menus')).filter((m) => m.id !== order.currentMenu).sort((a, b) => a.data.order - b.data.order);
 
-const d = new Date(order.orderBefore);
+const d = order.schedule.cutoff ? new Date(order.schedule.cutoff) : null;
 const tz = { timeZone: 'Europe/London' } as const;
-const chips = [
-  d.toLocaleDateString('en-GB', { ...tz, day: 'numeric' }),
-  d.toLocaleDateString('en-GB', { ...tz, month: 'short' }),
-  '‘' + d.toLocaleDateString('en-GB', { ...tz, year: '2-digit' }),
-];
-const time = d.toLocaleTimeString('en-GB', { ...tz, hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
-const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway order')}`;
+const chips = d
+  ? [
+      d.toLocaleDateString('en-GB', { ...tz, day: 'numeric' }),
+      d.toLocaleDateString('en-GB', { ...tz, month: 'short' }),
+      '‘' + d.toLocaleDateString('en-GB', { ...tz, year: '2-digit' }),
+    ]
+  : [];
+const time = d ? d.toLocaleTimeString('en-GB', { ...tz, hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase() : '';
 ---
 <Base title="Order Takeaway" bg="red">
   <div class="container">
@@ -26,7 +28,8 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
       <Sticker kind="takeaway" size="14rem" heading />
       <div class="deadline" data-reveal>
         <p class="eyebrow">Order before</p>
-        <p class="chips">{chips.map((c) => <span>{c}</span>)}<span class="time">{time}</span></p>
+        <p class="chips">{chips.map((c) => <span>{c}</span>)}{time && <span class="time">{time}</span>}</p>
+        <a class="pill-btn order-now" href="#order">Order online</a>
         <a class="small-link" href={site.mailchimp} target="_blank" rel="noopener">Sign up for takeaway reminders</a>
       </div>
     </div>
@@ -35,18 +38,9 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
       <MenuCard menu={current.data} />
     </section>
 
-    <section class="section options">
-      <h2 class="visually-hidden">Choose how to get your meal</h2>
-      {order.options.map((o) => (
-        <a class="option" href={o.url} target="_blank" rel="noopener" data-reveal>
-          <h3>{o.type}</h3>
-          <p class="price">£{o.price.toFixed(2)}</p>
-          <p>{o.description}</p>
-          <span class="pay">Pay with PayPal →</span>
-        </a>
-      ))}
-      <p class="email-order"><a class="pill-btn" href={emailOrder}>Or click here to order by email and pay cash/card on collection</a></p>
-    </section>
+    <div class="section">
+      <OrderForm order={order} site={site} />
+    </div>
 
     <section class="section split">
       <div class="card bg-yellow about-food" data-reveal set:html={site.aboutFood} />
@@ -89,18 +83,10 @@ const emailOrder = `mailto:${site.email}?subject=${encodeURIComponent('Takeaway 
   .chips { display: flex; gap: .4rem; margin: .4rem 0 .6rem; }
   .chips span { background: var(--white); border-radius: .4rem; padding: .2rem .6rem; font-size: 1.6rem; font-weight: 600; }
   .chips .time { background: var(--darkred); color: var(--white); }
+  .order-now { display: table; margin: 0 0 .8rem; background: var(--darkred); color: var(--white); border-color: var(--darkred); }
+  .order-now:hover { background: var(--red); }
   .small-link { font-size: .75rem; font-weight: 600; border: 1px solid; border-radius: .4rem; padding: .2rem .5rem; text-decoration: none; }
   .section { margin-top: 5rem; }
-  .options { display: grid; gap: 1rem; }
-  @media (min-width: 768px) { .options { grid-template-columns: repeat(3, 1fr); } .email-order { grid-column: 1 / -1; } }
-  .option { display: flex; flex-direction: column; gap: .5rem; background: var(--orange); color: var(--white); border-radius: var(--radius); padding: 1.5rem; text-decoration: none; transition: transform .4s var(--ease-out); }
-  .option:hover { transform: translateY(-6px) rotate(-1deg); }
-  .option:nth-child(3):hover { transform: translateY(-6px) rotate(1deg); }
-  .option h3 { font-size: 1.8rem; font-weight: 500; }
-  .option .price { font-size: 2rem; margin: 0; }
-  .option p { margin: 0; font-size: .9rem; }
-  .option .pay { margin-top: auto; padding-top: 1rem; font-weight: 700; }
-  .email-order { text-align: center; }
   .split { display: grid; gap: 2rem; align-items: start; }
   @media (min-width: 900px) { .split { grid-template-columns: 3fr 2fr; } }
   .about-food { font-size: clamp(1.1rem, 1.8vw, 1.4rem); font-weight: 500; line-height: 1.25; }

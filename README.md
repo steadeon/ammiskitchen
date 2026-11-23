@@ -23,7 +23,8 @@ Nothing to install.
 
 | In the Studio | What it changes |
 |---|---|
-| **This fortnight's takeaway** | Current menu, order deadline, "Meet the chef", PayPal options and prices |
+| **Takeaway orders** | Orders placed on the website: *This takeaway*, *Upcoming*, *All orders* |
+| **This fortnight's takeaway** | Current menu, takeaway Friday (sets the order deadline), "Meet the chef", meal options and prices |
 | **Set meals** | One per menu: photo, dishes, ingredients, reheating PDF. Each gets a page at `/menu/<page address>` |
 | **Chefs** | Name, photo and bio, picked for "Meet the chef" |
 | **Community lunch page** | Intro text and lunch dates (past dates hide themselves) |
@@ -31,7 +32,7 @@ Nothing to install.
 | **Contact details & shared text** | Address, email, phone, socials, allergy warning, gift voucher, "about the food" |
 
 **Each fortnight:** add a new set meal (or reuse one), then open *This fortnight's takeaway*,
-pick it as the current menu, set the deadline and chef, and press **Publish**. The site
+pick it as the current menu, set the takeaway Friday and chef, and press **Publish**. The site
 rebuilds by itself and is live about two minutes later.
 
 ### How it fits together
@@ -73,6 +74,45 @@ npm install
 npm run dev       # website at http://localhost:4321 (uses published Sanity content)
 npm run studio    # Studio at http://localhost:3333/admin
 ```
+
+## Takeaway ordering
+
+Customers order on the **Order Takeaway** page with a simple form: no account, they type their
+name, phone, optional email, collection or delivery (with address), how many of each meal, and notes.
+They pay by cash or card on collection or delivery.
+
+- **Deadline:** orders close at **6pm (UK time) the day before** the *Takeaway Friday* set in Sanity.
+  Fill in *Custom order deadline* to use a different time for one week. The form switches to
+  "orders closed" by itself, and the server refuses late orders too. The rule lives in `src/lib/ordering.ts`.
+- **Where orders go:** `worker/index.ts` (a small Cloudflare Worker at `/api/order`) checks the order,
+  takes prices from Sanity (never from the browser), and saves it as an **Order** in Sanity, which staff
+  see under *Takeaway orders* in /admin. Staff can tick *Paid*, set a status and add staff notes.
+- **Emails** (via [Resend](https://resend.com), free up to 3,000 a month): a confirmation to the customer
+  if they gave an email, and an alert to `STAFF_EMAIL`. A failed email never loses an order.
+- **Spam:** [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) (free, usually invisible),
+  plus a hidden "honeypot" box and a same-site check.
+- **Privacy:** order IDs start with `orders.`, which Sanity keeps private even though the rest of the
+  content is public: only signed-in staff can read them. A daily job deletes orders 90 days after their
+  takeaway (`ORDER_RETENTION_DAYS` in `wrangler.jsonc`). The form has a short privacy note.
+
+### Settings (Cloudflare → Workers & Pages → ammiskitchen → Settings → Variables and Secrets)
+
+Add each as type **Secret** (encrypted; never put these in the code):
+
+| Name | What |
+|---|---|
+| `SANITY_WRITE_TOKEN` | Sanity token with *Editor* rights (sanity.io/manage → API → Tokens) |
+| `TURNSTILE_SITE_KEY` | Turnstile site key (public, but kept here with its partner) |
+| `TURNSTILE_SECRET_KEY` | Turnstile secret key |
+| `RESEND_API_KEY` | Resend API key (*Sending access*) |
+| `STAFF_EMAIL` | Who gets new-order alerts, comma-separated |
+
+Without the Turnstile keys the form uses Cloudflare's test keys (always passes). Without
+`RESEND_API_KEY` orders are saved but no emails are sent. `EMAIL_FROM` in `wrangler.jsonc` must use a
+domain verified in Resend.
+
+**Important:** the Sanity webhook that rebuilds the site must ignore orders, or every order triggers a
+rebuild. Its filter should be: `!(_id in path("drafts.**")) && _type != "order"`.
 
 ## Brand and animation
 

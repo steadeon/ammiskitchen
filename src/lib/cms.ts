@@ -16,6 +16,7 @@ import aboutJson from '../data/about.json';
 import faqJson from '../data/faq.json';
 
 import project from '../../sanity.project.json';
+import { methodOf, schedule, type OrderOption, type Schedule } from './ordering';
 
 const env = (key: string): string | undefined => (import.meta.env?.[key] as string | undefined) || process.env[key];
 
@@ -103,23 +104,46 @@ export const getSite = once(async (): Promise<Site> => {
   };
 });
 
-export type Order = Omit<typeof orderJson, '_note'>;
+export interface Order {
+  currentMenu: string;
+  /** Takeaway date and order deadline, worked out from what staff entered. */
+  schedule: Schedule;
+  featuredChef: { name: string; description: string; photo: string };
+  options: OrderOption[];
+}
+
+const toOptions = (opts: any[]): OrderOption[] =>
+  (opts ?? []).map((o: any, i: number) => ({
+    key: o._key ?? String(i),
+    type: o.type,
+    price: Number(o.price) || 0,
+    description: o.description ?? '',
+    method: methodOf(o),
+    url: o.url ?? '',
+  }));
 
 export const getOrder = once(async (): Promise<Order> => {
   const d = await fetchDoc<any>(
     'takeaway',
-    `{ orderBefore, options, "currentMenu": currentMenu->slug.current, featuredChef->{ name, description, photo ${IMG} } }`,
+    `{ takeawayDate, orderBefore, options, "currentMenu": currentMenu->slug.current, featuredChef->{ name, description, photo ${IMG} } }`,
   );
-  if (!d) return orderJson;
+  if (!d) {
+    return {
+      currentMenu: orderJson.currentMenu,
+      schedule: schedule(orderJson.takeawayDate, orderJson.orderBefore),
+      featuredChef: orderJson.featuredChef,
+      options: toOptions(orderJson.options),
+    };
+  }
   return {
     currentMenu: d.currentMenu,
-    orderBefore: d.orderBefore,
+    schedule: schedule(d.takeawayDate, d.orderBefore),
     featuredChef: {
       name: d.featuredChef?.name ?? '',
       description: d.featuredChef?.description ?? '',
       photo: imageUrl(d.featuredChef?.photo, 300),
     },
-    options: (d.options ?? []).map((o: any) => ({ type: o.type, price: o.price, description: o.description ?? '', url: o.url })),
+    options: toOptions(d.options),
   };
 });
 
