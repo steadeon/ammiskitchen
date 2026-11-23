@@ -10,8 +10,7 @@ export default defineConfig({
   title: "Ammi's Kitchen",
   projectId,
   dataset,
-  // The Studio is served from /admin on the website (see README). Use '/' if you host it elsewhere.
-  basePath: process.env.SANITY_STUDIO_BASE_PATH ?? '/admin',
+  // Served from /admin on the website: set by `project.basePath` in sanity.cli.ts.
   plugins: [structureTool({ structure }), visionTool({ title: 'Query (advanced)' })],
   schema: {
     types: schemaTypes,
