@@ -1,6 +1,7 @@
 ---
 // Photo + pink card listing the dishes in a set meal. Used on the order page and menu pages.
-import site from '../data/site.json';
+import { getSite } from '../lib/cms';
+const site = await getSite();
 interface Props { menu: { title: string; image: string; imageAlt?: string; items: { name: string; description: string }[]; ingredients?: string | null; reheatingInstructions?: string }; showTitle?: boolean }
 const { menu, showTitle = true } = Astro.props;
 ---

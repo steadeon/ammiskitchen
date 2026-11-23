@@ -2,8 +2,8 @@
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import Accordion from '../components/Accordion.astro';
-import faq from '../data/faq.json';
-import site from '../data/site.json';
+import { getFaq, getSite } from '../lib/cms';
+const [faq, site] = await Promise.all([getFaq(), getSite()]);
 ---
 <Base title="FAQ" bg="none">
   <div class="container narrow">

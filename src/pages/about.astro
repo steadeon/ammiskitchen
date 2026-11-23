@@ -2,9 +2,8 @@
 import Base from '../layouts/Base.astro';
 import Sticker from '../components/Sticker.astro';
 import Accordion from '../components/Accordion.astro';
-import about from '../data/about.json';
-import faq from '../data/faq.json';
-import site from '../data/site.json';
+import { getAbout, getFaq, getSite } from '../lib/cms';
+const [about, faq, site] = await Promise.all([getAbout(), getFaq(), getSite()]);
 ---
 <Base title="About" bg="yellow">
   <div class="container">
