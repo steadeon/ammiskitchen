@@ -95,9 +95,11 @@ They pay by cash or card on collection or delivery.
   content is public: only signed-in staff can read them. A daily job deletes orders 90 days after their
   takeaway (`ORDER_RETENTION_DAYS` in `wrangler.jsonc`). The form has a short privacy note.
 
-### Settings (Cloudflare → Workers & Pages → ammiskitchen → Settings → Variables and Secrets)
+### Settings (Cloudflare → Workers & Pages → ammiskitchen → Settings → Build)
 
-Add each as type **Secret** (encrypted; never put these in the code):
+The secrets live in the **build** settings and are passed to the running Worker at deploy time
+(`scripts/worker-secrets.mjs` writes them to a git-ignored `.worker-secrets.json`). Add each under
+*Variables and secrets* as type **Secret**, on both the **Production** and **Previews Base** tabs:
 
 | Name | What |
 |---|---|
@@ -106,6 +108,13 @@ Add each as type **Secret** (encrypted; never put these in the code):
 | `TURNSTILE_SECRET_KEY` | Turnstile secret key |
 | `RESEND_API_KEY` | Resend API key (*Sending access*) |
 | `STAFF_EMAIL` | Who gets new-order alerts, comma-separated |
+
+Deploy commands (same screen, *Build configuration*):
+
+- Previews Base: `npx wrangler versions upload --secrets-file .worker-secrets.json`
+- Production: `npx wrangler deploy --secrets-file .worker-secrets.json`
+
+(Cloudflare's *Runtime variables and secrets* screen only unlocks once `main` has the Worker script.)
 
 Without the Turnstile keys the form uses Cloudflare's test keys (always passes). Without
 `RESEND_API_KEY` orders are saved but no emails are sent. While `EMAIL_FROM` in `wrangler.jsonc` is
