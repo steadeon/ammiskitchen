@@ -37,7 +37,10 @@ export default {
         return json({ ok: false, error: 'Method not allowed' }, 405);
       } catch (err) {
         console.error('Order error', err);
-        return json({ ok: false, error: "Sorry, something went wrong on our side and your order wasn't sent. Please try again, or contact us." }, 500);
+        // A short code (never secrets) so problems can be diagnosed from what the customer sees.
+        const msg = String((err as Error)?.message ?? err);
+        const code = msg.includes('is not set') ? 'setup' : (msg.match(/Sanity (query|mutation) failed: (\d+)/)?.slice(1).join('-') ?? 'unknown');
+        return json({ ok: false, code, error: `Sorry, something went wrong on our side and your order wasn't sent (error: ${code}). Please try again, or contact us.` }, 500);
       }
     }
     return env.ASSETS.fetch(request);
