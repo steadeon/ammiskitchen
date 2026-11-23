@@ -38,10 +38,6 @@ const time = d ? d.toLocaleTimeString('en-GB', { ...tz, hour: 'numeric', minute:
       <MenuCard menu={current.data} />
     </section>
 
-    <div class="section">
-      <OrderForm order={order} site={site} />
-    </div>
-
     <section class="section split">
       <div class="card bg-yellow about-food" data-reveal set:html={site.aboutFood} />
       <div class="chef" data-reveal>
@@ -62,6 +58,10 @@ const time = d ? d.toLocaleTimeString('en-GB', { ...tz, hour: 'numeric', minute:
         </div>
       </div>
     </section>
+
+    <div class="section">
+      <OrderForm order={order} site={site} />
+    </div>
 
     <section class="section">
       <h2 class="past-heading">Past menus</h2>
