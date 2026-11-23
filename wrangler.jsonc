@@ -18,8 +18,10 @@
   // Plain (non-secret) settings. Secrets are added in Cloudflare: SANITY_WRITE_TOKEN,
   // TURNSTILE_SECRET_KEY, RESEND_API_KEY (see README "Takeaway ordering").
   "vars": {
-    // Who order emails come from. The domain must be verified in Resend.
-    "EMAIL_FROM": "Ammi's Kitchen <orders@ammiskitchensheffield.org>",
+    // Who order emails come from. Empty = Resend's test sender, which can only email the Resend
+    // account's own address (fine for testing). At go-live, verify the domain in Resend and set
+    // this to "Ammi's Kitchen <orders@ammiskitchensheffield.org>".
+    "EMAIL_FROM": "",
     // How long orders are kept after their takeaway date.
     "ORDER_RETENTION_DAYS": "90"
   }
