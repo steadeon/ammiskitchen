@@ -109,10 +109,11 @@ The secrets live in the **build** settings and are passed to the running Worker 
 | `RESEND_API_KEY` | Resend API key (*Sending access*) |
 | `STAFF_EMAIL` | Who gets new-order alerts, comma-separated |
 
-Deploy commands (same screen, *Build configuration*):
+Commands (same screen, *Build configuration*):
 
-- Previews Base: `npx wrangler preview --secrets-file .worker-secrets.json`
-- Production: `npx wrangler deploy --secrets-file .worker-secrets.json`
+- Previews Base tab, *Preview command*: `npx wrangler preview --secrets-file .worker-secrets.json`
+- Production tab, *Deploy command*: `npx wrangler deploy --secrets-file .worker-secrets.json`
+  (change this one when the ordering code is merged into `main`; until then keep `npx wrangler deploy`)
 
 (Cloudflare's *Runtime variables and secrets* screen only unlocks once `main` has the Worker script.)
 
