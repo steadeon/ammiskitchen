@@ -81,7 +81,7 @@ Customers order on the **Order Takeaway** page with a simple form: no account, t
 name, phone, optional email, collection or delivery (with address), how many of each meal, and notes.
 They pay by cash or card on collection or delivery.
 
-- **Deadline:** orders close at **6pm (UK time) the day before** the *Takeaway Friday* set in Sanity.
+- **Deadline:** orders close at **5pm (UK time) on the Tuesday before** the *Takeaway Friday* set in Sanity.
   Fill in *Custom order deadline* to use a different time for one week. The form switches to
   "orders closed" by itself, and the server refuses late orders too. The rule lives in `src/lib/ordering.ts`.
 - **Where orders go:** `worker/index.ts` (a small Cloudflare Worker at `/api/order`) checks the order,

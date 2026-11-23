@@ -3,8 +3,8 @@
 
 export const TIME_ZONE = 'Europe/London';
 
-/** Orders close at this London time on the day before the takeaway (unless a custom deadline is set). */
-export const DEFAULT_CUTOFF = { daysBefore: 1, hour: 18, minute: 0 };
+/** Orders close at 5pm (London time) on the Tuesday before the takeaway Friday, unless a custom deadline is set. */
+export const DEFAULT_CUTOFF = { daysBefore: 3, hour: 17, minute: 0 };
 
 export type Method = 'collection' | 'delivery';
 

@@ -19,7 +19,7 @@ export const takeaway = defineType({
     defineField({
       name: 'takeawayDate',
       title: 'Takeaway Friday',
-      description: 'The day meals are collected and delivered. Online orders close at 6pm the day before, by themselves.',
+      description: 'The day meals are collected and delivered. Online orders close by themselves at 5pm on the Tuesday before.',
       type: 'date',
       options: { dateFormat: 'dddd D MMMM YYYY' },
       validation: (r) => r.required(),
@@ -27,7 +27,7 @@ export const takeaway = defineType({
     defineField({
       name: 'orderBefore',
       title: 'Custom order deadline (optional)',
-      description: 'Only fill this in to close orders at a different time from the usual 6pm the day before. Leave empty otherwise.',
+      description: 'Only fill this in to close orders at a different time from the usual 5pm on the Tuesday before. Leave empty otherwise.',
       type: 'datetime',
       options: { timeStep: 15 },
     }),
