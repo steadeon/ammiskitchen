@@ -158,6 +158,9 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(async (s: Status) => {
         cutoff = s.cutoff ? new Date(s.cutoff).getTime() : 0;
+        // Keep the "closed on …" wording in step with the server if staff changed the deadline since the last build.
+        const shown = root.querySelector('[data-deadline]');
+        if (shown && s.cutoff) shown.textContent = new Date(s.cutoff).toLocaleString('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', hour12: true }).replace(' at', ',');
         if (!panel('done').hidden) return;
         if (!s.open) return show('closed');
         show('open');
