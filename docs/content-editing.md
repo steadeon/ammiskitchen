@@ -61,7 +61,9 @@ the site now deploys as a **Cloudflare Worker with static assets** (Cloudflare's
 recommendation for Astro) rather than a Pages project. It still deploys from GitHub on every
 push, gives each branch a preview URL, and the free plan covers a site this size comfortably.
 
-Workers & Pages → Create → Import a repository → `steadeon/ammiskitchen`, then:
+This repo is already connected to a Workers project called `ammiskitchen` (Workers Builds), so
+nothing needs changing there. For reference, or to set it up again: Workers & Pages → Create →
+Import a repository → `steadeon/ammiskitchen`, then:
 
 | Setting | Value |
 |---|---|
