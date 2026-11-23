@@ -40,7 +40,7 @@ rebuilds by itself and is live about two minutes later.
 Staff ──edit──▶ Sanity Studio (/admin) ──publish──▶ Sanity content store (free plan)
                                                         │ webhook
                                                         ▼
-GitHub (code) ──push──▶ Cloudflare Pages build: Astro fetches content from Sanity
+GitHub (code) ──push──▶ Cloudflare build: Astro fetches content from Sanity
                         and outputs plain HTML ──▶ visitors
 ```
 
@@ -56,11 +56,11 @@ GitHub (code) ──push──▶ Cloudflare Pages build: Astro fetches content 
 
 1. **Sanity → CORS origins** (sanity.io/manage → project → API → CORS origins): add each address the
    Studio is opened from, ticking *Allow credentials*: `http://localhost:3333`, `http://localhost:4321`,
-   `https://*.<cloudflare-project>.pages.dev`, and the real domain.
+   `https://*.paul-848.workers.dev` (Cloudflare previews), and the real domain.
 2. **Import existing content:** create an *Editor* token (API → Tokens), save it as the GitHub repository
    secret `SANITY_WRITE_TOKEN`, then run the *Import content into Sanity* workflow (Actions tab).
    Or locally: `SANITY_WRITE_TOKEN=… npm run seed`. It only creates what's missing.
-3. **Rebuild on publish:** in Cloudflare Pages → Settings → Builds → *Deploy hooks*, create a hook for the
+3. **Rebuild on publish:** in Cloudflare → Workers & Pages → *ammiskitchen* → Settings → Builds → *Deploy hooks*, create a hook for the
    branch to rebuild (`main` for the live site) and copy its URL. In Sanity → API → *Webhooks*, add a
    webhook: URL = that hook, dataset `production`, trigger on create/update/delete, method POST, and
    filter `!(_id in path("drafts.**"))` so only published changes trigger builds.
