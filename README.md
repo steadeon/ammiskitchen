@@ -111,7 +111,7 @@ The secrets live in the **build** settings and are passed to the running Worker 
 
 Deploy commands (same screen, *Build configuration*):
 
-- Previews Base: `npx wrangler versions upload --secrets-file .worker-secrets.json`
+- Previews Base: `npx wrangler preview --secrets-file .worker-secrets.json`
 - Production: `npx wrangler deploy --secrets-file .worker-secrets.json`
 
 (Cloudflare's *Runtime variables and secrets* screen only unlocks once `main` has the Worker script.)

@@ -1,6 +1,6 @@
 // Copies the order form's secrets from Cloudflare's build variables into .worker-secrets.json,
 // so the deploy command can hand them to the running Worker:
-//   npx wrangler versions upload --secrets-file .worker-secrets.json   (branch previews)
+//   npx wrangler preview --secrets-file .worker-secrets.json           (branch previews)
 //   npx wrangler deploy --secrets-file .worker-secrets.json            (main)
 // Set them in Cloudflare → ammiskitchen → Settings → Build → Variables and secrets.
 // Only names listed here are copied, and only when set. The file is git-ignored.

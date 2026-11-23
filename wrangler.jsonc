@@ -10,8 +10,14 @@
     // Only order requests reach the Worker; every other page is served straight from dist/.
     "run_worker_first": ["/api/*"]
   },
-  // Needed by Cloudflare's per-branch preview deploys (`wrangler preview`).
-  "previews": {},
+  // Settings for Cloudflare's per-branch preview deploys (`wrangler preview`). Keep "vars" in
+  // step with the main "vars" below. Preview secrets come from the build: see README.
+  "previews": {
+    "vars": {
+      "EMAIL_FROM": "",
+      "ORDER_RETENTION_DAYS": "90"
+    }
+  },
   // Once a day (4am UTC), delete orders older than ORDER_RETENTION_DAYS.
   "triggers": { "crons": ["0 4 * * *"] },
   "observability": { "enabled": true },
