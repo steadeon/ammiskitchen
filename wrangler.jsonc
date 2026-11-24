@@ -18,8 +18,10 @@
       "ORDER_RETENTION_DAYS": "90"
     }
   },
-  // Once a day (4am UTC), delete orders older than ORDER_RETENTION_DAYS.
-  "triggers": { "crons": ["0 4 * * *"] },
+  // Once a day (4am UTC), delete orders older than ORDER_RETENTION_DAYS. Every 15 minutes, check
+  // whether orders have just closed and, if so, email staff the order spreadsheet (once per takeaway).
+  // The first one must match DAILY_CRON in worker/index.ts.
+  "triggers": { "crons": ["0 4 * * *", "*/15 * * * *"] },
   "observability": { "enabled": true },
   // Plain (non-secret) settings. Secrets are added in Cloudflare: SANITY_WRITE_TOKEN,
   // TURNSTILE_SECRET_KEY, RESEND_API_KEY (see README "Takeaway ordering").

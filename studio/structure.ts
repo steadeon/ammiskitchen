@@ -1,5 +1,7 @@
 import { ClipboardIcon } from '@sanity/icons/Clipboard';
+import { DownloadIcon } from '@sanity/icons/Download';
 import type { StructureResolver } from 'sanity/structure';
+import { OrdersExport } from './components/OrdersExport';
 
 // The left-hand menu staff see in the Studio, in the order they'll use it.
 const single = (S: Parameters<StructureResolver>[0], type: string, title: string) =>
@@ -28,6 +30,9 @@ const orders = (S: Parameters<StructureResolver>[0]) => {
           S.listItem().title('Upcoming').id('orders-upcoming').icon(ClipboardIcon)
             .child(list('Upcoming', '_type == "order" && takeawayDate >= $today', { today })),
           S.listItem().title('All orders').id('orders-all').icon(ClipboardIcon).child(list('All orders', '_type == "order"')),
+          S.divider(),
+          S.listItem().title('Download spreadsheet').id('orders-export').icon(DownloadIcon)
+            .child(S.component(OrdersExport).id('orders-export').title('Download orders spreadsheet')),
         ]),
     );
 };
