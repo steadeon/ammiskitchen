@@ -17,12 +17,19 @@ export const takeaway = defineType({
       validation: (r) => r.required(),
     }),
     defineField({
+      name: 'takeawayDate',
+      title: 'Takeaway Friday',
+      description: 'The day meals are collected and delivered. Online orders close by themselves at 5pm on the Tuesday before.',
+      type: 'date',
+      options: { dateFormat: 'dddd D MMMM YYYY' },
+      validation: (r) => r.required(),
+    }),
+    defineField({
       name: 'orderBefore',
-      title: 'Order deadline',
-      description: 'Usually 5pm on the Tuesday before cooking.',
+      title: 'Custom order deadline (optional)',
+      description: 'Only fill this in to close orders at a different time from the usual 5pm on the Tuesday before. Leave empty otherwise.',
       type: 'datetime',
       options: { timeStep: 15 },
-      validation: (r) => r.required(),
     }),
     defineField({ name: 'featuredChef', title: 'Meet the chef', type: 'reference', to: [{ type: 'chef' }] }),
     defineField({
@@ -36,12 +43,24 @@ export const takeaway = defineType({
           fields: [
             { name: 'type', title: 'Name', type: 'string', validation: (r) => r.required() },
             { name: 'price', title: 'Price (£)', type: 'number', validation: (r) => r.required().min(0) },
+            {
+              name: 'method',
+              title: 'Collection or delivery?',
+              type: 'string',
+              options: { list: [{ title: 'Collection', value: 'collection' }, { title: 'Delivery', value: 'delivery' }], layout: 'radio', direction: 'horizontal' },
+              initialValue: 'collection',
+            },
             { name: 'description', type: 'text', rows: 2 },
-            { name: 'url', title: 'PayPal link', type: 'url', validation: (r) => r.required() },
+            { name: 'url', title: 'PayPal link (optional)', description: 'For people who want to pay in advance.', type: 'url' },
           ],
           preview: {
-            select: { title: 'type', price: 'price' },
-            prepare: ({ title, price }) => ({ title, subtitle: price != null ? `£${Number(price).toFixed(2)}` : '' }),
+            select: { title: 'type', price: 'price', method: 'method' },
+            prepare: ({ title, price, method }) => ({
+              title,
+              subtitle: [price != null ? `£${Number(price).toFixed(2)}` : '', method === 'delivery' ? 'Delivery' : method ? 'Collection' : '']
+                .filter(Boolean)
+                .join(' · '),
+            }),
           },
         }),
       ],

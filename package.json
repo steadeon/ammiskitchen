@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/build-studio.mjs",
+    "build": "astro build && node scripts/build-studio.mjs && node scripts/worker-secrets.mjs",
     "preview": "astro preview",
     "studio": "npm run dev -w studio",
     "seed": "npm run seed -w studio"
@@ -20,5 +20,9 @@
   },
   "workspaces": [
     "studio"
-  ]
+  ],
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "wrangler": "^4.166.0"
+  }
 }

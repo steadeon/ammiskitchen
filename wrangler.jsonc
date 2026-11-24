@@ -1,10 +1,34 @@
-// Cloudflare Workers settings: serve the static build in dist/ (the site + the Studio at /admin).
+// Cloudflare Workers settings: serve the static build in dist/ (the site + the Studio at /admin),
+// plus a small Worker (worker/index.ts) that handles takeaway orders at /api/order.
 {
   "name": "ammiskitchen",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-11-17",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Only order requests reach the Worker; every other page is served straight from dist/.
+    "run_worker_first": ["/api/*"]
   },
-  // Needed by Cloudflare's per-branch preview deploys (`wrangler preview`).
-  "previews": {}
+  // Settings for Cloudflare's per-branch preview deploys (`wrangler preview`). Keep "vars" in
+  // step with the main "vars" below. Preview secrets come from the build: see README.
+  "previews": {
+    "vars": {
+      "EMAIL_FROM": "",
+      "ORDER_RETENTION_DAYS": "90"
+    }
+  },
+  // Once a day (4am UTC), delete orders older than ORDER_RETENTION_DAYS.
+  "triggers": { "crons": ["0 4 * * *"] },
+  "observability": { "enabled": true },
+  // Plain (non-secret) settings. Secrets are added in Cloudflare: SANITY_WRITE_TOKEN,
+  // TURNSTILE_SECRET_KEY, RESEND_API_KEY (see README "Takeaway ordering").
+  "vars": {
+    // Who order emails come from. Empty = Resend's test sender, which can only email the Resend
+    // account's own address (fine for testing). At go-live, verify the domain in Resend and set
+    // this to "Ammi's Kitchen <orders@ammiskitchensheffield.org>".
+    "EMAIL_FROM": "",
+    // How long orders are kept after their takeaway date.
+    "ORDER_RETENTION_DAYS": "90"
+  }
 }

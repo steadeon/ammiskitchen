@@ -119,9 +119,9 @@ await create({
   _type: 'takeaway',
   build: async () => ({
     currentMenu: { _type: 'reference', _ref: `menu-${order.currentMenu}` },
-    orderBefore: order.orderBefore,
+    takeawayDate: order.takeawayDate,
     featuredChef: { _type: 'reference', _ref: chefId },
-    options: order.options.map((o) => ({ _type: 'orderOption', _key: key(), ...o })),
+    options: order.options.map(({ _key, ...o }) => ({ _type: 'orderOption', _key: key(), ...o })),
   }),
 });
 

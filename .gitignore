@@ -4,3 +4,4 @@ dist/
 .sanity/
 studio/.sanity/
 .env
+.worker-secrets.json
