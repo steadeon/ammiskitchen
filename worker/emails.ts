@@ -1,4 +1,6 @@
-// The two emails sent for each order: a confirmation to the customer and an alert to staff.
+// The two emails sent for each order (a confirmation to the customer and an alert to staff),
+// plus the spreadsheet of all orders emailed to staff when orders close.
+import { summaryLines, type Summary } from '../src/lib/order-sheet';
 import { money, type Method } from '../src/lib/ordering';
 
 export interface PlacedOrder {
@@ -77,5 +79,21 @@ export function staffEmail(o: PlacedOrder) {
       <table style="border-collapse:collapse;margin:12px 0">${rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;vertical-align:top"><strong>${k}</strong></td><td style="padding:3px 0">${nl(v)}</td></tr>`).join('')}</table>
       <table style="border-collapse:collapse;margin:12px 0;width:100%">${itemsHtml(o)}</table>
       <p><a href="${esc(o.adminUrl)}" style="color:#b62632">See all orders in the editor</a></p>`),
+  };
+}
+
+export function orderSheetEmail(o: { day: string; deadline: string; summary: Summary; siteName: string }) {
+  const lines = summaryLines(o.summary);
+  const intro = `Orders for ${o.day} closed on ${o.deadline}. The spreadsheet of all orders is attached (it opens in Excel or Google Sheets).`;
+  const outro = 'Any changes made in the editor after this email (cancellations, phone orders) won\'t be in the attachment: download a fresh copy from Takeaway orders → Download spreadsheet in /admin.';
+  return {
+    subject: `Orders for ${o.day}: ${o.summary.meals} meal${o.summary.meals === 1 ? '' : 's'} from ${o.summary.orders} order${o.summary.orders === 1 ? '' : 's'}`,
+    text: [intro, '', ...lines, '', outro, '', o.siteName].join('\n'),
+    html: wrap(`
+      <p>${esc(intro)}</p>
+      <p style="margin:0"><strong>${esc(lines[0])}</strong></p>
+      <ul style="padding-left:20px;margin:8px 0 12px">${lines.slice(1).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
+      <p style="font-size:14px">${esc(outro)}</p>
+      <p>${esc(o.siteName)}</p>`),
   };
 }

@@ -2,13 +2,15 @@
 //
 //   GET  /api/order   whether orders are open right now, and the deadline
 //   POST /api/order   place a takeaway order (checked here, saved in Sanity, emails sent)
+//   every 15 minutes  once orders close, emails staff a spreadsheet of the orders (see orderSheetEmail)
 //   daily cron        deletes old orders, so personal details aren't kept longer than needed
 //
 // Secrets (set in Cloudflare, never in this repo): SANITY_WRITE_TOKEN, TURNSTILE_SECRET_KEY,
 // RESEND_API_KEY, and STAFF_EMAIL (who gets new-order alerts, comma-separated). Plain settings are in wrangler.jsonc under "vars".
 import project from '../sanity.project.json';
 import { formatDay, formatDeadline, isOpen, methodOf, money, schedule, type Method } from '../src/lib/ordering';
-import { confirmationEmail, staffEmail, type PlacedOrder } from './emails';
+import { csvFilename, ORDERS_QUERY, ordersCsv, summarise, type SheetOrder } from '../src/lib/order-sheet';
+import { confirmationEmail, orderSheetEmail, staffEmail, type PlacedOrder } from './emails';
 
 export interface Env {
   ASSETS: Fetcher;
@@ -24,6 +26,8 @@ export interface Env {
 // Cloudflare's published test keys: they always pass. Used until real keys are added.
 const TEST_SITE_KEY = '1x00000000000000000000AA';
 const TEST_SECRET_KEY = '1x0000000000000000000000000000000AA';
+
+const DAILY_CRON = '0 4 * * *';
 
 const API = `https://${project.projectId}.api.sanity.io/v2026-11-01/data`;
 
@@ -46,15 +50,16 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  async scheduled(_event, env, ctx) {
-    ctx.waitUntil(deleteOldOrders(env));
+  async scheduled(event, env, ctx) {
+    // The two schedules are in wrangler.jsonc ("triggers").
+    ctx.waitUntil(event.cron === DAILY_CRON ? deleteOldOrders(env) : sendOrderSheetIfClosed(env));
   },
 } satisfies ExportedHandler<Env>;
 
 // ---- Sanity ---------------------------------------------------------------------------
 
-async function sanityQuery<T>(env: Env, query: string, params: Record<string, unknown> = {}): Promise<T> {
-  const qs = new URLSearchParams({ query, perspective: 'published' });
+async function sanityQuery<T>(env: Env, query: string, params: Record<string, unknown> = {}, perspective = 'published'): Promise<T> {
+  const qs = new URLSearchParams({ query, perspective });
   for (const [k, v] of Object.entries(params)) qs.set(`$${k}`, JSON.stringify(v));
   const res = await fetch(`${API}/query/${project.dataset}?${qs}`, {
     headers: env.SANITY_WRITE_TOKEN ? { Authorization: `Bearer ${env.SANITY_WRITE_TOKEN}` } : {},
@@ -238,13 +243,15 @@ async function sendEmails(env: Env, order: PlacedOrder) {
     return;
   }
   const from = env.EMAIL_FROM || "Ammi's Kitchen <onboarding@resend.dev>";
-  const staff = (env.STAFF_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean);
+  const staff = staffEmails(env);
   const jobs: Promise<void>[] = [];
   if (order.email) jobs.push(sendEmail(env, { from, to: [order.email], reply_to: order.site.email || undefined, ...confirmationEmail(order) }));
   if (staff.length) jobs.push(sendEmail(env, { from, to: staff, reply_to: order.email || undefined, ...staffEmail(order) }));
   const results = await Promise.allSettled(jobs);
   for (const r of results) if (r.status === 'rejected') console.error(`Order ${order.reference}: email failed`, r.reason);
 }
+
+const staffEmails = (env: Env) => (env.STAFF_EMAIL ?? '').split(',').map((e) => e.trim()).filter(Boolean);
 
 async function sendEmail(env: Env, message: Record<string, unknown>) {
   const res = await fetch('https://api.resend.com/emails', {
@@ -254,6 +261,53 @@ async function sendEmail(env: Env, message: Record<string, unknown>) {
   });
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
 }
+
+// ---- Order spreadsheet at the deadline --------------------------------------------------
+
+// A private note in Sanity of which deadline the spreadsheet was last emailed for, so it's sent
+// once per takeaway (and again if staff move the deadline later). Not an order, so never deleted.
+const SENT_LOG_ID = 'orders.sheet-email-log';
+// Don't send for a deadline that passed longer ago than this (e.g. the first time this runs).
+const SEND_WITHIN_MS = 2 * 86400000;
+
+export async function sendOrderSheetIfClosed(env: Env, now = new Date()) {
+  if (!env.SANITY_WRITE_TOKEN || !env.RESEND_API_KEY || !staffEmails(env).length) return;
+  const r = await sanityQuery<{ takeaway: { takeawayDate?: string; orderBefore?: string } | null; sent: string | null; site: string | null }>(
+    env,
+    `{ "takeaway": *[_id == "takeaway"][0]{ takeawayDate, orderBefore }, "sent": *[_id == $log][0].sentFor,
+       "site": *[_id == "siteSettings"][0].name }`,
+    { log: SENT_LOG_ID },
+  );
+  const s = schedule(r.takeaway?.takeawayDate, r.takeaway?.orderBefore);
+  if (!s.cutoff || !s.takeawayDate) return;
+  const age = now.getTime() - new Date(s.cutoff).getTime();
+  const key = `${s.takeawayDate} ${s.cutoff}`;
+  if (age < 0 || age > SEND_WITHIN_MS || r.sent === key) return;
+
+  // "drafts" so staff edits (e.g. a cancellation) count even if not yet published.
+  const orders = await sanityQuery<SheetOrder[]>(env, ORDERS_QUERY, { date: s.takeawayDate }, 'drafts');
+  const message = orderSheetEmail({
+    day: formatDay(s.takeawayDate),
+    deadline: formatDeadline(s.cutoff),
+    summary: summarise(orders),
+    siteName: r.site || "Ammi's Kitchen",
+  });
+  await sendEmail(env, {
+    from: env.EMAIL_FROM || "Ammi's Kitchen <onboarding@resend.dev>",
+    to: staffEmails(env),
+    ...message,
+    attachments: [{ filename: csvFilename(s.takeawayDate), content: toBase64(ordersCsv(orders, s.takeawayDate)) }],
+  });
+  await sanityMutate(env, [{ createOrReplace: { _id: SENT_LOG_ID, _type: 'sheetEmailLog', sentFor: key, sentAt: now.toISOString() } }]);
+  console.log(`Order spreadsheet for ${s.takeawayDate} emailed to staff (${orders.length} orders)`);
+}
+
+const toBase64 = (text: string) => {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
 
 // ---- Retention ------------------------------------------------------------------------
 

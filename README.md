@@ -89,6 +89,13 @@ They pay by cash or card on collection or delivery.
   see under *Takeaway orders* in /admin. Staff can tick *Paid*, set a status and add staff notes.
 - **Emails** (via [Resend](https://resend.com), free up to 3,000 a month): a confirmation to the customer
   if they gave an email, and an alert to `STAFF_EMAIL`. A failed email never loses an order.
+- **Order spreadsheet:** *Takeaway orders → Download spreadsheet* in /admin gives a CSV (opens in Excel or
+  Google Sheets) for a chosen takeaway Friday: one row per order, a column per meal option, and totals at the
+  bottom (cancelled orders are listed but not counted). It's built in the signed-in staff member's browser, so
+  orders never go through a public address. **When orders close**, the Worker emails the same spreadsheet to
+  `STAFF_EMAIL` with a short summary (it checks every 15 minutes, sends once per deadline, and sends again if
+  the deadline is moved later). The sheet layout lives in `src/lib/order-sheet.ts`. Branch previews don't run
+  scheduled jobs, so the email only comes from `main`.
 - **Spam:** [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) (free, usually invisible),
   plus a hidden "honeypot" box and a same-site check.
 - **Privacy:** order IDs start with `orders.`, which Sanity keeps private even though the rest of the
