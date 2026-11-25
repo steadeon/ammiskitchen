@@ -54,3 +54,14 @@ h1, h2, h3 { letter-spacing: -0.025em; line-height: 1.1; margin: 0; font-weight:
   [data-reveal] { opacity: 1; transform: none; transition: none; }
   .spin-slow { animation: none; }
 }
+
+/* Beta features (src/lib/features.ts). data-beta on <html> lists the ones this visitor turned on.
+   data-beta-only="x": only shown when x is on. data-beta-hide="x": hidden when x is on. */
+html:not([data-beta~="ordering"]) [data-beta-only~="ordering"],
+html[data-beta~="ordering"] [data-beta-hide~="ordering"] { display: none !important; }
+.beta-badge { display: none; }
+html[data-beta] .beta-badge {
+  display: block; position: fixed; right: 1rem; bottom: 1rem; z-index: 50;
+  background: var(--darkred); color: var(--white); border-radius: 999px; padding: .35rem .8rem;
+  font-size: .75rem; font-weight: 700; text-decoration: none; box-shadow: 0 2px 8px rgb(0 0 0 / .2);
+}

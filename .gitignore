@@ -5,3 +5,4 @@ dist/
 studio/.sanity/
 .env
 .worker-secrets.json
+.wrangler/

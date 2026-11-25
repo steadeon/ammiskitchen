@@ -1,0 +1,86 @@
+---
+// /beta: a hidden page (not linked anywhere, not in search engines) where you can try new
+// features in your own browser before they're switched on for everyone. See src/lib/features.ts.
+import Base from '../layouts/Base.astro';
+import { getSite } from '../lib/cms';
+import { FEATURES, FEATURE_KEYS } from '../lib/features';
+
+const site = await getSite();
+const forEveryone: Record<string, boolean> = { ordering: site.features.onlineOrdering };
+const tryIt: Record<string, string> = { ordering: '/order#order' };
+---
+<Base title="Beta features" bg="none" noindex>
+  <div class="container narrow">
+    <div class="card bg-yellow beta" data-beta-page>
+      <p class="eyebrow">Behind the scenes</p>
+      <h1>Beta features</h1>
+      <p>New parts of the website that are still being tried out. Turning one on here only changes what <strong>you</strong> see,
+        in this browser. Everyone else keeps seeing the website as it is.</p>
+
+      <ul class="features">
+        {FEATURE_KEYS.map((key) => (
+          <li class="feature">
+            <label class="switch">
+              <input type="checkbox" data-feature={key} disabled={forEveryone[key]} checked={forEveryone[key]} />
+              <span class="track" aria-hidden="true"></span>
+              <span class="name">{FEATURES[key].title}</span>
+            </label>
+            <p class="desc">{FEATURES[key].description}</p>
+            {forEveryone[key]
+              ? <p class="note">Already switched on for everyone (Studio → Contact details &amp; shared text → New features).</p>
+              : <p class="note" data-on-note={key} hidden>On for you. <a href={tryIt[key]} data-astro-reload>Try it now →</a></p>}
+          </li>
+        ))}
+      </ul>
+
+      <p class="tip">Shortcut: add <code>?beta=on</code> to the end of any page address to turn everything on, or <code>?beta=off</code> to turn it all off again.</p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  declare global { interface Window { akBeta: { read(): string[]; write(list: string[]): void } } }
+
+  function init() {
+    const page = document.querySelector('[data-beta-page]');
+    if (!page) return;
+    const boxes = [...page.querySelectorAll<HTMLInputElement>('input[data-feature]')];
+    const show = () => {
+      const on = window.akBeta.read();
+      for (const box of boxes) {
+        if (box.disabled) continue;
+        box.checked = on.includes(box.dataset.feature!);
+        const note = page.querySelector<HTMLElement>(`[data-on-note="${box.dataset.feature}"]`);
+        if (note) note.hidden = !box.checked;
+      }
+    };
+    for (const box of boxes)
+      box.addEventListener('change', () => {
+        const others = window.akBeta.read().filter((f) => f !== box.dataset.feature);
+        window.akBeta.write(box.checked ? [...others, box.dataset.feature!] : others);
+        show();
+      });
+    show();
+  }
+
+  document.addEventListener('astro:page-load', init);
+</script>
+
+<style>
+  .narrow { max-width: 44rem; padding-top: 3rem; padding-bottom: 4rem; }
+  .beta h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.05; }
+  .features { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; gap: 1.25rem; }
+  .feature { background: var(--white); border-radius: 1rem; padding: 1.1rem 1.25rem; }
+  .feature p { margin: .5rem 0 0; font-size: .95rem; }
+  .note { font-weight: 600; }
+  .switch { display: flex; align-items: center; gap: .8rem; cursor: pointer; font-weight: 700; font-size: 1.2rem; }
+  .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .track { flex: none; width: 3rem; height: 1.7rem; border-radius: 999px; background: #d9c9b8; position: relative; transition: background .2s; }
+  .track::after { content: ''; position: absolute; top: .2rem; left: .2rem; width: 1.3rem; height: 1.3rem; border-radius: 50%; background: var(--white); transition: transform .2s var(--ease-out); box-shadow: 0 1px 3px rgb(0 0 0 / .25); }
+  .switch input:checked + .track { background: var(--darkred); }
+  .switch input:checked + .track::after { transform: translateX(1.3rem); }
+  .switch input:focus-visible + .track { outline: 3px solid var(--darkred); outline-offset: 2px; }
+  .switch input:disabled + .track { opacity: .6; }
+  .tip { margin-top: 2rem; font-size: .85rem; }
+  .tip code { white-space: nowrap; background: var(--white); border-radius: .3rem; padding: .05rem .35rem; }
+</style>

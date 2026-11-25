@@ -5,11 +5,16 @@
 //   every 15 minutes  once orders close, emails staff a spreadsheet of the orders (see orderSheetEmail)
 //   daily cron        deletes old orders, so personal details aren't kept longer than needed
 //
+// The order form is a beta feature (src/lib/features.ts): until "Online order form" is ticked in the
+// Studio, orders are only accepted from people who turned it on for themselves at /beta, and the
+// spreadsheet email is only sent if there are orders.
+//
 // Secrets (set in Cloudflare, never in this repo): SANITY_WRITE_TOKEN, TURNSTILE_SECRET_KEY,
 // RESEND_API_KEY, and STAFF_EMAIL (who gets new-order alerts, comma-separated). Plain settings are in wrangler.jsonc under "vars".
 import project from '../sanity.project.json';
 import { formatDay, formatDeadline, isOpen, methodOf, money, schedule, type Method } from '../src/lib/ordering';
 import { csvFilename, ORDERS_QUERY, ordersCsv, summarise, type SheetOrder } from '../src/lib/order-sheet';
+import { betaFeatures } from '../src/lib/features';
 import { confirmationEmail, orderSheetEmail, staffEmail, type PlacedOrder } from './emails';
 
 export interface Env {
@@ -36,7 +41,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/api/order' || url.pathname === '/api/order/') {
       try {
-        if (request.method === 'GET') return await status(env);
+        if (request.method === 'GET') return await status(request, env);
         if (request.method === 'POST') return await placeOrder(request, env, ctx);
         return json({ ok: false, error: 'Method not allowed' }, 405);
       } catch (err) {
@@ -84,19 +89,25 @@ interface Takeaway {
   orderBefore?: string;
   menu?: string;
   options?: { _key: string; type: string; price: number; method?: string }[];
-  site?: { name?: string; email?: string; phone?: string; address?: string };
+  site?: { name?: string; email?: string; phone?: string; address?: string; onlineOrdering?: boolean };
 }
 
 const loadTakeaway = (env: Env) =>
   sanityQuery<Takeaway | null>(
     env,
     `*[_id == "takeaway"][0]{ takeawayDate, orderBefore, "menu": currentMenu->title, options[]{ _key, type, price, method },
-      "site": *[_id == "siteSettings"][0]{ name, email, phone, address } }`,
+      "site": *[_id == "siteSettings"][0]{ name, email, phone, address, "onlineOrdering": features.onlineOrdering } }`,
   );
 
 // ---- GET: are orders open? ------------------------------------------------------------
 
-async function status(env: Env) {
+/** "everyone" once switched on in the Studio; "beta" for someone who turned it on at /beta; otherwise "off". */
+function onlineOrdering(t: Takeaway | null, request: Request): 'everyone' | 'beta' | 'off' {
+  if (t?.site?.onlineOrdering) return 'everyone';
+  return betaFeatures(request.headers.get('Cookie')).includes('ordering') ? 'beta' : 'off';
+}
+
+async function status(request: Request, env: Env) {
   const t = await loadTakeaway(env);
   const s = schedule(t?.takeawayDate, t?.orderBefore);
   // Which settings are present (true/false only, never their values), to help with setup.
@@ -106,7 +117,7 @@ async function status(env: Env) {
     resend: Boolean(env.RESEND_API_KEY),
     staffEmail: Boolean(env.STAFF_EMAIL),
   };
-  return json({ ok: true, open: isOpen(s), ...s, siteKey: env.TURNSTILE_SITE_KEY || TEST_SITE_KEY, configured });
+  return json({ ok: true, open: isOpen(s), ...s, onlineOrdering: onlineOrdering(t, request), siteKey: env.TURNSTILE_SITE_KEY || TEST_SITE_KEY, configured });
 }
 
 // ---- POST: place an order -------------------------------------------------------------
@@ -134,6 +145,9 @@ async function placeOrder(request: Request, env: Env, ctx: ExecutionContext) {
   if (!human) return json({ ok: false, error: "We couldn't confirm you're not a robot. Please tick the check box again and resend." }, 403);
 
   const t = await loadTakeaway(env);
+  if (onlineOrdering(t, request) === 'off') {
+    return json({ ok: false, error: "Sorry, online ordering isn't open yet. Please order by email or PayPal, as shown on our Order page." }, 403);
+  }
   const s = schedule(t?.takeawayDate, t?.orderBefore);
   if (!isOpen(s)) {
     const when = s.cutoff ? ` They closed on ${formatDeadline(s.cutoff)}.` : '';
@@ -272,10 +286,15 @@ const SEND_WITHIN_MS = 2 * 86400000;
 
 export async function sendOrderSheetIfClosed(env: Env, now = new Date()) {
   if (!env.SANITY_WRITE_TOKEN || !env.RESEND_API_KEY || !staffEmails(env).length) return;
-  const r = await sanityQuery<{ takeaway: { takeawayDate?: string; orderBefore?: string } | null; sent: string | null; site: string | null }>(
+  const r = await sanityQuery<{
+    takeaway: { takeawayDate?: string; orderBefore?: string } | null;
+    sent: string | null;
+    site: string | null;
+    forEveryone: boolean | null;
+  }>(
     env,
     `{ "takeaway": *[_id == "takeaway"][0]{ takeawayDate, orderBefore }, "sent": *[_id == $log][0].sentFor,
-       "site": *[_id == "siteSettings"][0].name }`,
+       "site": *[_id == "siteSettings"][0].name, "forEveryone": *[_id == "siteSettings"][0].features.onlineOrdering }`,
     { log: SENT_LOG_ID },
   );
   const s = schedule(r.takeaway?.takeawayDate, r.takeaway?.orderBefore);
@@ -286,6 +305,8 @@ export async function sendOrderSheetIfClosed(env: Env, now = new Date()) {
 
   // "drafts" so staff edits (e.g. a cancellation) count even if not yet published.
   const orders = await sanityQuery<SheetOrder[]>(env, ORDERS_QUERY, { date: s.takeawayDate }, 'drafts');
+  // While the order form is still in beta, don't email staff an empty spreadsheet every fortnight.
+  if (!r.forEveryone && !orders.length) return;
   const message = orderSheetEmail({
     day: formatDay(s.takeawayDate),
     deadline: formatDeadline(s.cutoff),
