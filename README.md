@@ -81,6 +81,11 @@ Customers order on the **Order Takeaway** page with a simple form: no account, t
 name, phone, optional email, collection or delivery (with address), how many of each meal, and notes.
 They pay by cash or card on collection or delivery.
 
+> **It's a beta feature, off by default.** Until *Online order form* is ticked in the Studio
+> (*Contact details & shared text → New features*), the Order page shows the PayPal and email ordering
+> from the old website, and only people who turned the form on for themselves can see or use it.
+> See [Beta features](#beta-features).
+
 - **Deadline:** orders close at **5pm (UK time) on the Tuesday before** the *Takeaway Friday* set in Sanity.
   Fill in *Custom order deadline* to use a different time for one week. The form switches to
   "orders closed" by itself, and the server refuses late orders too. The rule lives in `src/lib/ordering.ts`.
@@ -132,6 +137,25 @@ records), set `EMAIL_FROM` to `Ammi's Kitchen <orders@ammiskitchensheffield.org>
 
 **Important:** the Sanity webhook that rebuilds the site must ignore orders, or every order triggers a
 rebuild. Its filter should be: `!(_id in path("drafts.**")) && _type != "order"`.
+
+## Beta features
+
+New features can be tried out on the real website before everyone sees them. The list is in
+`src/lib/features.ts` (today: the online order form).
+
+- **Try one yourself:** go to `/beta` on the website (not linked anywhere, hidden from search engines) and
+  flip the switch, or add `?beta=on` to any page address (`?beta=off` turns it off). It's remembered in
+  this browser only (a cookie), and a small "Beta features on" badge shows in the corner while it's on.
+  Everyone else sees the site as normal.
+- **Switch one on for everyone:** tick it in the Studio under *Contact details & shared text → New
+  features* and publish. The site rebuilds in a minute or two.
+- **What the order form switch covers:** the form and "Order online" button on the Order page (otherwise the
+  old PayPal / email ordering shows), *Takeaway orders* in the Studio (same browser cookie, or switched on for
+  everyone), and the Worker: `/api/order` refuses orders from anyone without the beta cookie while it's off,
+  and the order-closed spreadsheet email is only sent if there are orders.
+- **How it works:** a tiny script at the top of every page (`src/layouts/Base.astro`) reads the cookie and
+  sets `data-beta` on the page, and CSS shows or hides anything marked `data-beta-only="…"` or
+  `data-beta-hide="…"`, before the page is drawn, so nothing flashes up.
 
 ## Brand and animation
 

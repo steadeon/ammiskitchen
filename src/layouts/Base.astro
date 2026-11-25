@@ -5,6 +5,7 @@ import Background from '../components/Background.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { getSite } from '../lib/cms';
+import { BETA_COOKIE, FEATURE_KEYS } from '../lib/features';
 const site = await getSite();
 
 interface Props {
@@ -12,8 +13,10 @@ interface Props {
   description?: string;
   bg?: 'white' | 'yellow' | 'red' | 'none';
   home?: boolean;
+  /** Keep this page out of search engines. */
+  noindex?: boolean;
 }
-const { title, description = site.description, bg = 'yellow', home = false } = Astro.props;
+const { title, description = site.description, bg = 'yellow', home = false, noindex = false } = Astro.props;
 const slide = {
   old: { name: 'slideOut', duration: '0.35s', easing: 'ease-in', fillMode: 'both' },
   new: { name: 'slideIn', duration: '0.7s', easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fillMode: 'both' },
@@ -29,7 +32,40 @@ const fullTitle = title ? `${title} — ${site.name}` : site.name;
     <meta name="description" content={description} />
     <meta name="theme-color" content="#fe9907" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {noindex && <meta name="robots" content="noindex" />}
     <title>{fullTitle}</title>
+    <!-- Beta features this visitor has turned on (see src/lib/features.ts). Runs before the page
+         is drawn, so hidden features never flash up. ?beta=on / ?beta=off on any address sets it. -->
+    <script is:inline define:vars={{ cookieName: BETA_COOKIE, known: FEATURE_KEYS }}>
+      if (!window.akBeta) {
+        const read = () => {
+          const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + cookieName + '=([^;]*)'));
+          return m ? decodeURIComponent(m[1]).split(',').filter((f) => known.includes(f)) : [];
+        };
+        const apply = () => {
+          const on = read();
+          if (on.length) document.documentElement.dataset.beta = on.join(' ');
+          else delete document.documentElement.dataset.beta;
+        };
+        const write = (list) => {
+          const on = [...new Set(list)].filter((f) => known.includes(f));
+          document.cookie = cookieName + '=' + encodeURIComponent(on.join(',')) + '; path=/; SameSite=Lax; max-age=' +
+            (on.length ? 31536000 : 0) + (location.protocol === 'https:' ? '; Secure' : '');
+          apply();
+        };
+        window.akBeta = { known, read, write, apply };
+        const url = new URL(location.href);
+        const param = url.searchParams.get('beta');
+        if (param !== null) {
+          write(['off', '0', 'false', ''].includes(param) ? [] : ['on', '1', 'true'].includes(param) ? known : param.split(','));
+          url.searchParams.delete('beta');
+          history.replaceState(history.state, '', url);
+        }
+        // Moving between pages replaces the <html> attributes, so put the setting back each time.
+        document.addEventListener('astro:after-swap', apply);
+      }
+      window.akBeta.apply();
+    </script>
     <ClientRouter />
   </head>
   <body>
@@ -39,6 +75,7 @@ const fullTitle = title ? `${title} — ${site.name}` : site.name;
       <slot />
     </main>
     <Footer />
+    <a class="beta-badge" href="/beta/" data-astro-reload>Beta features on</a>
 
     <script>
       import lottie from 'lottie-web/build/player/lottie_light';

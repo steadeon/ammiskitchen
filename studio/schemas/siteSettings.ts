@@ -10,6 +10,7 @@ export const siteSettings = defineType({
     { name: 'contact', title: 'Contact', default: true },
     { name: 'food', title: 'Food text' },
     { name: 'voucher', title: 'Gift voucher' },
+    { name: 'features', title: 'New features' },
   ],
   fields: [
     defineField({ name: 'name', title: 'Site name', type: 'string', group: 'contact', validation: (r) => r.required() }),
@@ -33,6 +34,25 @@ export const siteSettings = defineType({
         { name: 'buttonText', title: 'Button text', type: 'string' },
         { name: 'url', title: 'Buy link', type: 'url' },
         { name: 'image', type: 'photo' },
+      ],
+    }),
+    defineField({
+      name: 'features',
+      title: 'New features',
+      description:
+        'Switch a new feature on for everyone. While a feature is off, only people who have turned it on for themselves at /beta on the website can see it.',
+      type: 'object',
+      group: 'features',
+      options: { collapsible: false },
+      fields: [
+        defineField({
+          name: 'onlineOrdering',
+          title: 'Online order form',
+          description:
+            'Off: the Order page shows the PayPal and email ordering, as on the old website. On: everyone sees the new order form, and online orders are accepted. Publish to update the website (it takes a minute or two).',
+          type: 'boolean',
+          initialValue: false,
+        }),
       ],
     }),
   ],

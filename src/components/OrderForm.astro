@@ -137,6 +137,9 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
   function init() {
     const root = document.querySelector<HTMLElement>('[data-order-form]');
     if (!root || root.dataset.ready) return;
+    // Still a beta feature and this visitor hasn't turned it on: the form is hidden, so do nothing.
+    const gate = root.closest<HTMLElement>('[data-beta-only]')?.dataset.betaOnly;
+    if (gate && !(document.documentElement.dataset.beta ?? '').split(' ').includes(gate)) return;
     root.dataset.ready = '1';
     const form = root.querySelector('form')!;
     const panel = (name: string) => root.querySelector<HTMLElement>(`[data-panel="${name}"]`)!;
