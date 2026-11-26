@@ -2,7 +2,6 @@ import { ClipboardIcon } from '@sanity/icons/Clipboard';
 import { DownloadIcon } from '@sanity/icons/Download';
 import type { StructureResolver } from 'sanity/structure';
 import { OrdersExport } from './components/OrdersExport';
-import { betaFeatures } from '../src/lib/features';
 
 // The left-hand menu staff see in the Studio, in the order they'll use it.
 const single = (S: Parameters<StructureResolver>[0], type: string, title: string) =>
@@ -43,23 +42,14 @@ const orders = (S: Parameters<StructureResolver>[0]) => {
     );
 };
 
-// "Takeaway orders" belongs to the online order form, a beta feature (src/lib/features.ts). It's shown once
-// the form is switched on for everyone in "Contact details & shared text", or in a browser where it was
-// turned on at /beta (the Studio lives on the same website, so it sees the same setting).
-async function showOrders(getClient: Parameters<StructureResolver>[1]['getClient']) {
-  if (betaFeatures(document.cookie).includes('ordering')) return true;
-  try {
-    return Boolean(await getClient({ apiVersion: '2026-11-01' }).fetch('*[_id == "siteSettings"][0].features.onlineOrdering'));
-  } catch {
-    return false;
-  }
-}
-
-export const structure: StructureResolver = async (S, { getClient }) =>
+// "Takeaway orders" is always shown: only signed-in staff can open the Studio, so there is nothing to hide
+// from the public here. The order form on the website itself stays behind its beta switch (src/lib/features.ts).
+export const structure: StructureResolver = (S) =>
   S.list()
     .title('Content')
     .items([
-      ...((await showOrders(getClient)) ? [orders(S), S.divider()] : []),
+      orders(S),
+      S.divider(),
       single(S, 'takeaway', "This fortnight's takeaway"),
       S.documentTypeListItem('menu').title('Set meals'),
       S.documentTypeListItem('chef').title('Chefs'),

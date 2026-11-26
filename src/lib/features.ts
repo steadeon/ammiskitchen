@@ -12,7 +12,7 @@ export const FEATURES = {
   ordering: {
     title: 'Online order form',
     description:
-      'The new takeaway order form on the Order page, and "Takeaway orders" in the Studio. While it is off, the Order page shows the PayPal and email ordering, as on the old website.',
+      'The new takeaway order form on the Order page. While it is off, the Order page shows the PayPal and email ordering, as on the old website.',
   },
   payments: {
     title: 'Pay online',
