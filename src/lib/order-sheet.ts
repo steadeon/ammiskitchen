@@ -7,6 +7,8 @@ export interface SheetOrder {
   reference?: string;
   status?: string;
   paid?: boolean;
+  /** "paypal" for orders paid online, "later" (or missing) for pay on collection / delivery. */
+  payment?: string;
   name?: string;
   phone?: string;
   email?: string;
@@ -24,15 +26,17 @@ export interface SheetOrder {
 /**
  * The GROQ query for one takeaway's orders ($date = the takeaway Friday). Run it with the
  * "drafts" perspective so staff edits (status, paid, notes) count even before they're published.
+ * "Pay now" orders whose payment never went through ("awaitingPayment") are left out.
  */
-export const ORDERS_QUERY = `*[_type == "order" && takeawayDate == $date] | order(submittedAt asc) {
-  reference, status, paid, name, phone, email, method, address, postcode,
+export const ORDERS_QUERY = `*[_type == "order" && takeawayDate == $date && status != "awaitingPayment"] | order(submittedAt asc) {
+  reference, status, paid, payment, name, phone, email, method, address, postcode,
   items[]{ option, quantity, price }, totalMeals, totalPrice, notes, staffNotes, submittedAt
 }`;
 
 const STATUS: Record<string, string> = { new: 'New', packed: 'Packed', done: 'Collected / delivered', cancelled: 'Cancelled' };
 
 export const isCancelled = (o: SheetOrder) => o.status === 'cancelled';
+const paidOnline = (o: SheetOrder) => o.payment === 'paypal' && Boolean(o.paid);
 const mealsIn = (o: SheetOrder) => (o.items ?? []).reduce((n, i) => n + (Number(i.quantity) || 0), 0);
 const priceOf = (o: SheetOrder) =>
   o.totalPrice ?? (o.items ?? []).reduce((n, i) => n + (Number(i.quantity) || 0) * (Number(i.price) || 0), 0);
@@ -45,6 +49,8 @@ export interface Summary {
   delivery: number;
   meals: number;
   price: number;
+  /** Of that, how much was paid online (PayPal). */
+  paidOnline: number;
   /** Meals of each option, in the order they first appear. */
   perOption: { option: string; quantity: number }[];
 }
@@ -62,6 +68,7 @@ export function summarise(orders: SheetOrder[]): Summary {
     delivery: live.filter((o) => o.method === 'delivery').length,
     meals: live.reduce((n, o) => n + mealsIn(o), 0),
     price: Math.round(live.reduce((n, o) => n + priceOf(o), 0) * 100) / 100,
+    paidOnline: Math.round(live.filter(paidOnline).reduce((n, o) => n + priceOf(o), 0) * 100) / 100,
     perOption: [...perOption].map(([option, quantity]) => ({ option, quantity })),
   };
 }
@@ -106,7 +113,7 @@ export function ordersCsv(orders: SheetOrder[], takeawayDate: string): string {
     ...orders.map((o) =>
       row(
         [
-          o.reference, STATUS[o.status ?? ''] ?? o.status ?? '', o.paid ? 'Yes' : 'No', o.name, phoneCell(o.phone), o.email,
+          o.reference, STATUS[o.status ?? ''] ?? o.status ?? '', paidOnline(o) ? 'Yes (online)' : o.paid ? 'Yes' : 'No', o.name, phoneCell(o.phone), o.email,
           o.method === 'delivery' ? 'Delivery' : 'Collection', o.method === 'delivery' ? (o.address ?? '').replace(/\s*\n\s*/g, ', ') : '',
           o.method === 'delivery' ? o.postcode : '',
           ...options.map((opt) => qty(o, opt)), mealsIn(o), priceOf(o).toFixed(2), o.notes, o.staffNotes, londonDateTime(o.submittedAt),
@@ -131,6 +138,8 @@ export function summaryLines(sum: Summary): string[] {
   return [
     `${sum.orders} order${sum.orders === 1 ? '' : 's'} (${sum.collection} collection, ${sum.delivery} delivery)${sum.cancelled ? `, plus ${sum.cancelled} cancelled` : ''}`,
     ...sum.perOption.filter((p) => p.quantity).map((p) => `${p.quantity} × ${p.option}`),
-    `${sum.meals} meal${sum.meals === 1 ? '' : 's'} in total, ${money(sum.price)} to collect`,
+    sum.paidOnline
+      ? `${sum.meals} meal${sum.meals === 1 ? '' : 's'} in total, ${money(sum.price)}: ${money(sum.paidOnline)} paid online, ${money(Math.round((sum.price - sum.paidOnline) * 100) / 100)} to collect`
+      : `${sum.meals} meal${sum.meals === 1 ? '' : 's'} in total, ${money(sum.price)} to collect`,
   ];
 }

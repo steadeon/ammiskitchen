@@ -6,8 +6,8 @@ import { getSite } from '../lib/cms';
 import { FEATURES, FEATURE_KEYS } from '../lib/features';
 
 const site = await getSite();
-const forEveryone: Record<string, boolean> = { ordering: site.features.onlineOrdering };
-const tryIt: Record<string, string> = { ordering: '/order#order' };
+const forEveryone: Record<string, boolean> = { ordering: site.features.onlineOrdering, payments: site.features.onlinePayments };
+const tryIt: Record<string, string> = { ordering: '/order#order', payments: '/order#order' };
 ---
 <Base title="Beta features" bg="none" noindex>
   <div class="container narrow">

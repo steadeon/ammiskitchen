@@ -15,6 +15,8 @@ export interface PlacedOrder {
   items: { option: string; quantity: number; price: number }[];
   totalMeals: number;
   totalPrice: number;
+  /** Paid online with PayPal before the takeaway (otherwise they pay on collection or delivery). */
+  paidOnline?: boolean;
   menu: string;
   day: string;
   site: { name: string; email: string; phone: string; address: string };
@@ -25,9 +27,11 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const nl = (s: string) => esc(s).replace(/\n/g, '<br>');
 
 const itemsText = (o: PlacedOrder) => o.items.map((i) => `${i.quantity} × ${i.option} (${money(i.price)} each)`).join('\n');
+const totalLabel = (o: PlacedOrder) => (o.paidOnline ? 'Total paid online' : 'Total to pay');
+
 const itemsHtml = (o: PlacedOrder) =>
   o.items.map((i) => `<tr><td style="padding:4px 12px 4px 0">${i.quantity} × ${esc(i.option)}</td><td style="padding:4px 0;text-align:right">${money(i.quantity * i.price)}</td></tr>`).join('') +
-  `<tr><td style="padding:8px 12px 4px 0;border-top:1px solid #e5c9a0"><strong>Total to pay</strong></td><td style="padding:8px 0 4px;border-top:1px solid #e5c9a0;text-align:right"><strong>${money(o.totalPrice)}</strong></td></tr>`;
+  `<tr><td style="padding:8px 12px 4px 0;border-top:1px solid #e5c9a0"><strong>${totalLabel(o)}</strong></td><td style="padding:8px 0 4px;border-top:1px solid #e5c9a0;text-align:right"><strong>${money(o.totalPrice)}</strong></td></tr>`;
 
 const where = (o: PlacedOrder) =>
   o.method === 'delivery'
@@ -39,13 +43,15 @@ const wrap = (body: string) =>
 
 export function confirmationEmail(o: PlacedOrder) {
   const contact = [o.site.phone && `call ${o.site.phone}`, o.site.email && `email ${o.site.email}`].filter(Boolean).join(' or ');
-  const pay = `Please pay ${money(o.totalPrice)} by cash or card when you ${o.method === 'delivery' ? 'receive your delivery' : 'collect'}.`;
+  const pay = o.paidOnline
+    ? `You've paid ${money(o.totalPrice)} online, so there's nothing to pay when you ${o.method === 'delivery' ? 'receive your delivery' : 'collect'}.`
+    : `Please pay ${money(o.totalPrice)} by cash or card when you ${o.method === 'delivery' ? 'receive your delivery' : 'collect'}.`;
   const change = `Need to change or cancel? ${contact ? `Just ${contact}` : 'Just reply to this email'} and quote ${o.reference}.`;
   return {
     subject: `Your takeaway order ${o.reference} for ${o.day}`,
     text: [
       `Hi ${o.name},`, '', `Thank you! We've got your takeaway order.`, '',
-      `Order: ${o.reference}`, o.menu && `Menu: ${o.menu}`, '', itemsText(o), `Total to pay: ${money(o.totalPrice)}`, '',
+      `Order: ${o.reference}`, o.menu && `Menu: ${o.menu}`, '', itemsText(o), `${totalLabel(o)}: ${money(o.totalPrice)}`, '',
       where(o), '', pay, '', change, '', o.site.name,
     ].filter((l) => typeof l === 'string').join('\n'),
     html: wrap(`
@@ -66,12 +72,13 @@ export function staffEmail(o: PlacedOrder) {
     ['Phone', o.phone],
     ['Email', o.email || '(none given)'],
     ['How', o.method === 'delivery' ? `Delivery to ${o.address}, ${o.postcode}` : 'Collection'],
+    ['Payment', o.paidOnline ? `Paid online (PayPal), ${money(o.totalPrice)}` : 'On collection / delivery'],
     ['Notes', o.notes || '(none)'],
   ];
   return {
-    subject: `New order ${o.reference}: ${o.name}, ${o.totalMeals} meal${o.totalMeals === 1 ? '' : 's'} (${o.method})`,
+    subject: `New order ${o.reference}: ${o.name}, ${o.totalMeals} meal${o.totalMeals === 1 ? '' : 's'} (${o.method}${o.paidOnline ? ', paid online' : ''})`,
     text: [
-      `New takeaway order for ${o.day}`, '', ...rows.map(([k, v]) => `${k}: ${v}`), '', itemsText(o), `Total to pay: ${money(o.totalPrice)}`, '',
+      `New takeaway order for ${o.day}`, '', ...rows.map(([k, v]) => `${k}: ${v}`), '', itemsText(o), `${totalLabel(o)}: ${money(o.totalPrice)}`, '',
       `See all orders: ${o.adminUrl}`,
     ].join('\n'),
     html: wrap(`

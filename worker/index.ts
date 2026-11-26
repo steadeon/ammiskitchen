@@ -1,23 +1,28 @@
 // The small bit of server code behind the website. Everything else is static files.
 //
 //   GET  /api/order   whether orders are open right now, and the deadline
-//   POST /api/order   place a takeaway order (checked here, saved in Sanity, emails sent)
+//   POST /api/order   place a takeaway order (checked here, saved in Sanity, emails sent).
+//                     With "Pay now", the order is saved unpaid and a PayPal payment is started instead.
+//   POST /api/order/pay        take the PayPal payment once the customer approves it (see worker/paypal.ts)
+//   POST /api/paypal/webhook   PayPal confirming payments and refunds directly
 //   every 15 minutes  once orders close, emails staff a spreadsheet of the orders (see orderSheetEmail)
 //   daily cron        deletes old orders, so personal details aren't kept longer than needed
 //
 // The order form is a beta feature (src/lib/features.ts): until "Online order form" is ticked in the
 // Studio, orders are only accepted from people who turned it on for themselves at /beta, and the
-// spreadsheet email is only sent if there are orders.
+// spreadsheet email is only sent if there are orders. "Pay online" is a second beta feature on top.
 //
 // Secrets (set in Cloudflare, never in this repo): SANITY_WRITE_TOKEN, TURNSTILE_SECRET_KEY,
-// RESEND_API_KEY, and STAFF_EMAIL (who gets new-order alerts, comma-separated). Plain settings are in wrangler.jsonc under "vars".
+// RESEND_API_KEY, STAFF_EMAIL (who gets new-order alerts, comma-separated), and for online payments
+// PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and PAYPAL_WEBHOOK_ID. Plain settings are in wrangler.jsonc under "vars".
 import project from '../sanity.project.json';
 import { formatDay, formatDeadline, isOpen, methodOf, money, schedule, type Method } from '../src/lib/ordering';
 import { csvFilename, ORDERS_QUERY, ordersCsv, summarise, type SheetOrder } from '../src/lib/order-sheet';
 import { betaFeatures } from '../src/lib/features';
 import { confirmationEmail, orderSheetEmail, staffEmail, type PlacedOrder } from './emails';
+import * as paypal from './paypal';
 
-export interface Env {
+export interface Env extends paypal.PayPalEnv {
   ASSETS: Fetcher;
   SANITY_WRITE_TOKEN?: string;
   TURNSTILE_SECRET_KEY?: string;
@@ -39,8 +44,11 @@ const API = `https://${project.projectId}.api.sanity.io/v2026-11-01/data`;
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === '/api/order' || url.pathname === '/api/order/') {
+    const path = url.pathname.replace(/\/$/, '');
+    if (path === '/api/paypal/webhook') return paypalWebhook(request, env, ctx);
+    if (path === '/api/order' || path === '/api/order/pay') {
       try {
+        if (path === '/api/order/pay') return request.method === 'POST' ? await payOrder(request, env, ctx) : json({ ok: false, error: 'Method not allowed' }, 405);
         if (request.method === 'GET') return await status(request, env);
         if (request.method === 'POST') return await placeOrder(request, env, ctx);
         return json({ ok: false, error: 'Method not allowed' }, 405);
@@ -48,7 +56,7 @@ export default {
         console.error('Order error', err);
         // A short code (never secrets) so problems can be diagnosed from what the customer sees.
         const msg = String((err as Error)?.message ?? err);
-        const code = msg.includes('is not set') ? 'setup' : (msg.match(/Sanity (query|mutation) failed: (\d+)/)?.slice(1).join('-') ?? 'unknown');
+        const code = msg.includes('is not set') ? 'setup' : (msg.match(/(Sanity (?:query|mutation)|PayPal [a-z]+) failed: (\d+)/)?.slice(1).join('-').replace(/ /g, '-').toLowerCase() ?? 'unknown');
         return json({ ok: false, code, error: `Sorry, something went wrong on our side and your order wasn't sent (error: ${code}). Please try again, or contact us.` }, 500);
       }
     }
@@ -89,14 +97,14 @@ interface Takeaway {
   orderBefore?: string;
   menu?: string;
   options?: { _key: string; type: string; price: number; method?: string }[];
-  site?: { name?: string; email?: string; phone?: string; address?: string; onlineOrdering?: boolean };
+  site?: { name?: string; email?: string; phone?: string; address?: string; onlineOrdering?: boolean; onlinePayments?: boolean };
 }
 
 const loadTakeaway = (env: Env) =>
   sanityQuery<Takeaway | null>(
     env,
     `*[_id == "takeaway"][0]{ takeawayDate, orderBefore, "menu": currentMenu->title, options[]{ _key, type, price, method },
-      "site": *[_id == "siteSettings"][0]{ name, email, phone, address, "onlineOrdering": features.onlineOrdering } }`,
+      "site": *[_id == "siteSettings"][0]{ name, email, phone, address, "onlineOrdering": features.onlineOrdering, "onlinePayments": features.onlinePayments } }`,
   );
 
 // ---- GET: are orders open? ------------------------------------------------------------
@@ -105,6 +113,12 @@ const loadTakeaway = (env: Env) =>
 function onlineOrdering(t: Takeaway | null, request: Request): 'everyone' | 'beta' | 'off' {
   if (t?.site?.onlineOrdering) return 'everyone';
   return betaFeatures(request.headers.get('Cookie')).includes('ordering') ? 'beta' : 'off';
+}
+
+/** Whether this visitor is offered "Pay now": PayPal is set up, and the feature is on for everyone or for them. */
+function onlinePayments(t: Takeaway | null, request: Request, env: Env): boolean {
+  if (!paypal.paypalConfigured(env)) return false;
+  return Boolean(t?.site?.onlinePayments) || betaFeatures(request.headers.get('Cookie')).includes('payments');
 }
 
 async function status(request: Request, env: Env) {
@@ -116,8 +130,12 @@ async function status(request: Request, env: Env) {
     turnstile: Boolean(env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY),
     resend: Boolean(env.RESEND_API_KEY),
     staffEmail: Boolean(env.STAFF_EMAIL),
+    paypal: paypal.paypalConfigured(env) ? paypal.paypalMode(env) : false,
+    paypalWebhook: Boolean(env.PAYPAL_WEBHOOK_ID),
   };
-  return json({ ok: true, open: isOpen(s), ...s, onlineOrdering: onlineOrdering(t, request), siteKey: env.TURNSTILE_SITE_KEY || TEST_SITE_KEY, configured });
+  // The PayPal client ID is public (it goes in PayPal's script on the page); the secret never leaves the Worker.
+  const pay = onlinePayments(t, request, env) ? { clientId: env.PAYPAL_CLIENT_ID, mode: paypal.paypalMode(env) } : null;
+  return json({ ok: true, open: isOpen(s), ...s, onlineOrdering: onlineOrdering(t, request), payOnline: pay, siteKey: env.TURNSTILE_SITE_KEY || TEST_SITE_KEY, configured });
 }
 
 // ---- POST: place an order -------------------------------------------------------------
@@ -163,6 +181,7 @@ async function placeOrder(request: Request, env: Env, ctx: ExecutionContext) {
   const address = str('address', 400);
   const postcode = str('postcode', 10).toUpperCase().replace(/\s+/g, '').replace(/^(.+)(\d[A-Z]{2})$/, '$1 $2');
   const notes = str('notes', 1000);
+  const payNow = str('payment', 20) === 'paypal';
 
   if (!name) errors.name = 'Please tell us your name.';
   if (!/^[0-9+()\-\s]{7,30}$/.test(phone) || (phone.match(/\d/g)?.length ?? 0) < 7) errors.phone = 'Please give a phone number we can call.';
@@ -180,21 +199,26 @@ async function placeOrder(request: Request, env: Env, ctx: ExecutionContext) {
   if (items.some((i) => !Number.isInteger(i.quantity) || i.quantity < 0 || i.quantity > 50)) errors.items = 'Please choose between 0 and 50 of each meal.';
   else if (!items.length) errors.items = 'Please choose how many meals you would like.';
 
+  if (payNow && !onlinePayments(t, request, env)) errors.payment = "Sorry, paying online isn't available at the moment. Please choose to pay when you collect or we deliver.";
+
   if (Object.keys(errors).length) return json({ ok: false, error: Object.values(errors)[0], fields: errors }, 400);
 
   const totalMeals = items.reduce((n, i) => n + i.quantity, 0);
   const totalPrice = Math.round(items.reduce((n, i) => n + i.quantity * i.price, 0) * 100) / 100;
   const reference = makeReference();
   const submittedAt = new Date().toISOString();
+  const orderId = `orders.${crypto.randomUUID()}`;
 
   // IDs starting "orders." are private in Sanity: only signed-in staff can read them.
+  // A "Pay now" order waits as "awaitingPayment" (not counted anywhere) until PayPal confirms the money.
   await sanityMutate(env, [
     {
       create: {
-        _id: `orders.${crypto.randomUUID()}`,
+        _id: orderId,
         _type: 'order',
-        status: 'new',
+        status: payNow ? 'awaitingPayment' : 'new',
         paid: false,
+        payment: payNow ? 'paypal' : 'later',
         reference,
         takeawayDate: s.takeawayDate,
         menu: t?.menu ?? '',
@@ -212,18 +236,163 @@ async function placeOrder(request: Request, env: Env, ctx: ExecutionContext) {
     },
   ]);
 
-  const placed: PlacedOrder = {
-    reference, name, phone, email, method, address, postcode, notes, totalMeals, totalPrice,
-    items: items.map(({ option, quantity, price }) => ({ option, quantity, price })),
-    menu: t?.menu ?? '',
-    day: formatDay(s.takeawayDate),
-    site: { name: t?.site?.name || "Ammi's Kitchen", email: t?.site?.email ?? '', phone: t?.site?.phone ?? '', address: t?.site?.address ?? '' },
-    adminUrl: `${new URL(request.url).origin}/admin/structure/orders`,
-  };
+  const placed = placedOrder({ reference, name, phone, email, method, address, postcode, notes, totalMeals, totalPrice, items, paid: false }, t, s.takeawayDate, request);
+
+  if (payNow) {
+    // Start the PayPal payment. Emails wait until the money has arrived (see finishPayment).
+    try {
+      const pp = await paypal.createOrder(env, {
+        orderId,
+        reference,
+        description: `${placed.site.name} takeaway for ${placed.day} (${reference})`,
+        brand: placed.site.name,
+        items: placed.items.map((i) => ({ name: i.option, quantity: i.quantity, price: i.price })),
+        total: totalPrice,
+      });
+      await sanityMutate(env, [{ patch: { id: orderId, set: { paypalOrderId: pp.id } } }]);
+      return json({ ok: true, reference, paypalOrderId: pp.id });
+    } catch (err) {
+      console.error(`Order ${reference}: couldn't start PayPal payment`, err);
+      await sanityMutate(env, [{ delete: { id: orderId } }]).catch(() => {});
+      return json({ ok: false, error: "Sorry, we couldn't start the online payment. Please try again, or choose to pay when you collect or we deliver." }, 502);
+    }
+  }
+
   // Send emails after replying, so the customer isn't kept waiting. A failed email never loses the order.
   ctx.waitUntil(sendEmails(env, placed));
 
   return json({ ok: true, reference, totalMeals, total: money(totalPrice), day: placed.day, emailed: Boolean(email && env.RESEND_API_KEY) });
+}
+
+interface OrderFacts {
+  reference: string; name: string; phone: string; email: string; method: Method; address?: string; postcode?: string; notes?: string;
+  totalMeals: number; totalPrice: number; items: { option: string; quantity: number; price: number }[]; paid: boolean;
+}
+
+/** Everything the emails need about an order. */
+function placedOrder(o: OrderFacts, t: Takeaway | null, takeawayDate: string, request: Request, menu = t?.menu ?? ''): PlacedOrder {
+  return {
+    reference: o.reference, name: o.name, phone: o.phone, email: o.email ?? '', method: o.method, address: o.address ?? '', postcode: o.postcode ?? '',
+    notes: o.notes ?? '', totalMeals: o.totalMeals, totalPrice: o.totalPrice, paidOnline: o.paid,
+    items: o.items.map(({ option, quantity, price }) => ({ option, quantity, price })),
+    menu,
+    day: formatDay(takeawayDate),
+    site: { name: t?.site?.name || "Ammi's Kitchen", email: t?.site?.email ?? '', phone: t?.site?.phone ?? '', address: t?.site?.address ?? '' },
+    adminUrl: `${new URL(request.url).origin}/admin/structure/orders`,
+  };
+}
+
+// ---- Online payment (PayPal) ------------------------------------------------------------
+
+interface StoredOrder extends OrderFacts {
+  _id: string;
+  _rev: string;
+  status?: string;
+  takeawayDate: string;
+  menu?: string;
+  paypalOrderId?: string;
+}
+
+const STORED_ORDER = `{ _id, _rev, status, paid, reference, name, phone, email, method, address, postcode, notes, totalMeals, totalPrice,
+  items[]{ option, quantity, price }, takeawayDate, menu, paypalOrderId }`;
+
+const findByPayPalId = (env: Env, paypalOrderId: string) =>
+  sanityQuery<StoredOrder | null>(env, `*[_type == "order" && paypalOrderId == $id && !(_id in path("drafts.**"))][0]${STORED_ORDER}`, { id: paypalOrderId }, 'raw');
+
+/** POST /api/order/pay: the customer approved the payment in PayPal's pop-up, so take the money. */
+async function payOrder(request: Request, env: Env, ctx: ExecutionContext) {
+  if (!sameOrigin(request)) return json({ ok: false, error: 'Please order from our website.' }, 403);
+  const body = (await request.json().catch(() => ({}))) as { paypalOrderId?: string };
+  const id = String(body.paypalOrderId ?? '').slice(0, 64);
+  const order = id && /^[A-Z0-9-]+$/i.test(id) ? await findByPayPalId(env, id) : null;
+  if (!order) return json({ ok: false, error: "We couldn't find that order. Please try again, or contact us." }, 404);
+
+  let pp: paypal.PayPalOrder;
+  try {
+    pp = await paypal.captureOrder(env, id);
+  } catch (err) {
+    // The card was refused: PayPal's pop-up can offer the customer another way to pay.
+    if (err instanceof paypal.PayPalError && err.issue === 'INSTRUMENT_DECLINED') return json({ ok: false, retry: true, error: 'Your payment was declined. Please try another card or payment method.' }, 402);
+    throw err;
+  }
+  const capture = paypal.completedCapture(pp);
+  if (!capture) {
+    // Rare: PayPal is still checking the payment (status PENDING). The webhook will finish it.
+    return json({ ok: false, pending: true, reference: order.reference, error: `Thank you. PayPal is still processing your payment. We'll email you once it's confirmed. Your order number is ${order.reference}.` }, 202);
+  }
+  const done = await finishPayment(env, order, capture, request, ctx);
+  return json({ ok: true, paid: done.paid, reference: order.reference, totalMeals: order.totalMeals, total: money(order.totalPrice), day: formatDay(order.takeawayDate), emailed: Boolean(order.email && env.RESEND_API_KEY) });
+}
+
+/**
+ * Marks an order paid once PayPal has the money, then sends the emails. Runs from the page and from
+ * the webhook; whichever gets there first does it (Sanity's revision check stops it happening twice).
+ */
+async function finishPayment(env: Env, order: StoredOrder, capture: paypal.Capture, request: Request, ctx: ExecutionContext) {
+  if (order.paid) return { paid: true, first: false };
+  const amount = Number(capture.amount?.value ?? 0);
+  const enough = capture.amount?.currency_code === 'GBP' && amount + 0.001 >= order.totalPrice;
+  const set: Record<string, unknown> = { paypalCaptureId: capture.id, paidAmount: amount, paidAt: new Date().toISOString() };
+  if (enough) set.paid = true;
+  else set.staffNotes = `PayPal payment of ${capture.amount?.currency_code} ${capture.amount?.value} doesn't match the order total of ${money(order.totalPrice)}. Please check in PayPal.`;
+  if (order.status === 'awaitingPayment') set.status = 'new';
+  try {
+    await sanityMutate(env, [{ patch: { id: order._id, ifRevisionID: order._rev, set } }]);
+  } catch (err) {
+    // Someone else (the webhook, or the page) changed it first: check whether it's now paid.
+    if (!String((err as Error).message).includes('409')) throw err;
+    const now = await sanityQuery<{ paid?: boolean } | null>(env, `*[_id == $id][0]{ paid }`, { id: order._id }, 'raw');
+    return { paid: Boolean(now?.paid), first: false };
+  }
+  const t = await loadTakeaway(env);
+  ctx.waitUntil(sendEmails(env, placedOrder({ ...order, paid: enough }, t, order.takeawayDate, request, order.menu)));
+  console.log(`Order ${order.reference}: paid ${amount} by PayPal (capture ${capture.id})`);
+  return { paid: enough, first: true };
+}
+
+/** POST /api/paypal/webhook: PayPal telling us about payments directly (set up in the PayPal developer dashboard). */
+async function paypalWebhook(request: Request, env: Env, ctx: ExecutionContext) {
+  if (request.method !== 'POST') return json({ ok: false }, 405);
+  const raw = await request.text();
+  if (!(await paypal.verifyWebhook(env, request.headers, raw).catch(() => false))) return json({ ok: false }, 401);
+  const event = JSON.parse(raw) as { event_type: string; resource: any };
+  try {
+    switch (event.event_type) {
+      // The customer approved but the page never asked us to take the money (e.g. they closed it).
+      case 'CHECKOUT.ORDER.APPROVED': {
+        const order = await findByPayPalId(env, event.resource.id);
+        if (!order || order.paid) break;
+        const capture = paypal.completedCapture(await paypal.captureOrder(env, event.resource.id));
+        if (capture) await finishPayment(env, order, capture, request, ctx);
+        break;
+      }
+      case 'PAYMENT.CAPTURE.COMPLETED': {
+        const id = event.resource.supplementary_data?.related_ids?.order_id;
+        const order = id ? await findByPayPalId(env, id) : null;
+        if (order) await finishPayment(env, order, event.resource, request, ctx);
+        break;
+      }
+      // A payment PayPal was still checking (pending) was refused in the end: note it for staff.
+      case 'PAYMENT.CAPTURE.DENIED': {
+        const id = event.resource.supplementary_data?.related_ids?.order_id;
+        const order = id ? await findByPayPalId(env, id) : null;
+        if (order && !order.paid) await sanityMutate(env, [{ patch: { id: order._id, set: { staffNotes: `PayPal refused this payment (transaction ${event.resource.id}). The customer hasn't paid.` } } }]);
+        break;
+      }
+      // Refunded in the charity's PayPal account: show it in the Studio.
+      case 'PAYMENT.CAPTURE.REFUNDED': {
+        const captureId = event.resource.links?.find((l: { rel: string; href: string }) => l.rel === 'up')?.href?.split('/').pop();
+        const ids = captureId ? await sanityQuery<string[]>(env, `*[_type == "order" && paypalCaptureId == $id]._id`, { id: captureId }, 'raw') : [];
+        if (ids.length) await sanityMutate(env, ids.map((id) => ({ patch: { id, set: { paid: false, refundedAt: new Date().toISOString() } } })));
+        break;
+      }
+    }
+  } catch (err) {
+    console.error(`PayPal webhook ${event.event_type} failed`, err);
+    // Non-2xx makes PayPal try again later.
+    return json({ ok: false }, 500);
+  }
+  return json({ ok: true });
 }
 
 function sameOrigin(request: Request) {
@@ -338,7 +507,10 @@ async function deleteOldOrders(env: Env) {
   const before = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   // Includes unpublished staff edits (drafts.orders.*), which have the same type.
   await sanityMutate(env, [{ delete: { query: `*[_type == "order" && coalesce(takeawayDate, submittedAt) < "${before}"]` } }]);
-  console.log(`Deleted orders for takeaways before ${before}`);
+  // "Pay now" orders where the customer never finished paying (they're not counted anywhere).
+  const abandoned = new Date(Date.now() - 2 * 86400000).toISOString();
+  await sanityMutate(env, [{ delete: { query: `*[_type == "order" && status == "awaitingPayment" && submittedAt < "${abandoned}"]` } }]);
+  console.log(`Deleted orders for takeaways before ${before}, and unfinished online payments`);
 }
 
 // ---- helpers --------------------------------------------------------------------------

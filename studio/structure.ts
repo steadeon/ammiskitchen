@@ -17,6 +17,8 @@ const orders = (S: Parameters<StructureResolver>[0]) => {
       .params(params)
       .initialValueTemplates([])
       .defaultOrdering([{ field: 'submittedAt', direction: 'desc' }]);
+  // Orders that count: everything except "Pay now" orders still waiting for the money.
+  const placed = '_type == "order" && status != "awaitingPayment"';
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
   return S.listItem()
     .title('Takeaway orders')
@@ -27,10 +29,13 @@ const orders = (S: Parameters<StructureResolver>[0]) => {
         .title('Takeaway orders')
         .items([
           S.listItem().title('This takeaway').id('orders-current').icon(ClipboardIcon)
-            .child(list('This takeaway', '_type == "order" && takeawayDate == *[_id == "takeaway"][0].takeawayDate')),
+            .child(list('This takeaway', `${placed} && takeawayDate == *[_id == "takeaway"][0].takeawayDate`)),
           S.listItem().title('Upcoming').id('orders-upcoming').icon(ClipboardIcon)
-            .child(list('Upcoming', '_type == "order" && takeawayDate >= $today', { today })),
-          S.listItem().title('All orders').id('orders-all').icon(ClipboardIcon).child(list('All orders', '_type == "order"')),
+            .child(list('Upcoming', `${placed} && takeawayDate >= $today`, { today })),
+          S.listItem().title('All orders').id('orders-all').icon(ClipboardIcon).child(list('All orders', placed)),
+          // Customers who chose "Pay now" but didn't finish paying. Not real orders; deleted after 2 days.
+          S.listItem().title('Unfinished online payments').id('orders-unpaid').icon(ClipboardIcon)
+            .child(list('Unfinished online payments', '_type == "order" && status == "awaitingPayment"')),
           S.divider(),
           S.listItem().title('Download spreadsheet').id('orders-export').icon(DownloadIcon)
             .child(S.component(OrdersExport).id('orders-export').title('Download orders spreadsheet')),

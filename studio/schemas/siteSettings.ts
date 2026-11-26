@@ -53,6 +53,14 @@ export const siteSettings = defineType({
           type: 'boolean',
           initialValue: false,
         }),
+        defineField({
+          name: 'onlinePayments',
+          title: 'Pay online',
+          description:
+            'On: the order form offers "Pay now" with PayPal or a debit/credit card, as well as paying on collection or delivery. Only works once PayPal is set up (see the README) and the online order form is on.',
+          type: 'boolean',
+          initialValue: false,
+        }),
       ],
     }),
   ],
