@@ -79,7 +79,7 @@ npm run studio    # Studio at http://localhost:3333/admin
 
 Customers order on the **Order Takeaway** page with a simple form: no account, they type their
 name, phone, optional email, collection or delivery (with address), how many of each meal, and notes.
-They pay by cash or card on collection or delivery.
+They pay by cash or card on collection or delivery, or (beta) online with PayPal or a card.
 
 > **It's a beta feature, off by default.** Until *Online order form* is ticked in the Studio
 > (*Contact details & shared text → New features*), the Order page shows the PayPal and email ordering
@@ -101,6 +101,27 @@ They pay by cash or card on collection or delivery.
   `STAFF_EMAIL` with a short summary (it checks every 15 minutes, sends once per deadline, and sends again if
   the deadline is moved later). The sheet layout lives in `src/lib/order-sheet.ts`. Branch previews don't run
   scheduled jobs, so the email only comes from `main`.
+- **Paying online (beta, PayPal):** with *Pay online* switched on (Studio → *New features*, or for yourself at
+  `/beta`), the form gets a step 4: **Pay now** (PayPal, or debit/credit card without a PayPal account) or
+  **pay on collection/delivery** as before. With *Pay now*, PayPal's buttons replace *Send my order*: the Worker
+  saves the order as *Waiting for online payment*, creates a PayPal payment for the price in Sanity, and once the
+  customer pays it takes the money, ticks *Paid*, and sends the emails ("paid online"). Orders where the customer
+  never finished paying aren't counted anywhere (Studio → *Takeaway orders → Unfinished online payments*) and are
+  deleted after 2 days. A PayPal webhook catches payments where the customer closed the page too soon, and marks
+  refunds made in PayPal. The spreadsheet shows *Paid: Yes (online)* and splits the total into paid online and to
+  collect. Code: `worker/paypal.ts`. Pay Later is switched off (it costs the charity more).
+
+  **Setting up PayPal** (sandbox first, no real money):
+  1. Log in at [developer.paypal.com](https://developer.paypal.com) with the charity's PayPal business login →
+     *Apps & Credentials* → *Sandbox* → *Create App* (type: Merchant). Copy the **Client ID** and **Secret**.
+  2. In that app, *Add Webhook*: URL `https://<site>/api/paypal/webhook`, events *Checkout order approved*,
+     *Payment capture completed* and *Payment capture refunded*. Copy the **Webhook ID**.
+  3. In Cloudflare → ammiskitchen → Settings → Build → Variables and secrets, add `PAYPAL_CLIENT_ID`,
+     `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID` (type Secret), then redeploy. `GET /api/order` shows
+     `"paypal": "sandbox"` under `configured` when they've arrived.
+  4. Test with a sandbox *personal* account (*Testing Tools → Sandbox Accounts*) or one of PayPal's test cards.
+  5. Going live: repeat 1–3 on the *Live* tab, set `PAYPAL_ENV` to `"live"` in `wrangler.jsonc`, and ask PayPal for
+     the **charity rate** (1.4% + 20p instead of 2.9% + 30p) if the account doesn't have it yet.
 - **Spam:** [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) (free, usually invisible),
   plus a hidden "honeypot" box and a same-site check.
 - **Privacy:** order IDs start with `orders.`, which Sanity keeps private even though the rest of the

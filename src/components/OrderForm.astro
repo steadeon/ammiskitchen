@@ -2,6 +2,8 @@
 // The takeaway order form. No accounts: customers type their details each time.
 // Orders go to the Worker at /api/order (worker/index.ts), which checks the deadline again,
 // saves the order in Sanity and sends the emails. The form closes itself at the deadline.
+// "Pay now" (a beta feature, see src/lib/features.ts) appears only when the Worker says this visitor
+// can pay online: then PayPal's buttons replace "Send my order" (see worker/paypal.ts for the flow).
 import { formatDay, formatDeadline, isOpen } from '../lib/ordering';
 import type { Order, Site } from '../lib/cms';
 
@@ -28,7 +30,7 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
     </div>
 
     <div data-panel="open" hidden={!openAtBuild}>
-      <p class="lede">No account needed. You pay by cash or card when you {methods.length > 1 ? 'collect or we deliver' : methods[0]?.value === 'delivery' ? 'receive your delivery' : 'collect'}.
+      <p class="lede">No account needed. <span data-pay-lede>You pay by cash or card when you {methods.length > 1 ? 'collect or we deliver' : methods[0]?.value === 'delivery' ? 'receive your delivery' : 'collect'}.</span>
         {deadline && <>{' '}Orders close <strong>{deadline}</strong>.</>}</p>
 
       <form novalidate>
@@ -81,12 +83,31 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
           <label class="trap" aria-hidden="true">Leave this empty<input name="website" tabindex="-1" autocomplete="off" /></label>
         </fieldset>
 
+        <fieldset class="pay" data-pay hidden>
+          <legend class="step">4. How would you like to pay?</legend>
+          <p class="error" data-error="payment" hidden></p>
+          <div class="method-grid">
+            <label class="method">
+              <input type="radio" name="payment" value="paypal" checked disabled />
+              <span class="method-title">Pay now</span>
+              <span class="method-text">With PayPal, or by debit or credit card (no PayPal account needed)</span>
+            </label>
+            <label class="method">
+              <input type="radio" name="payment" value="later" disabled />
+              <span class="method-title" data-later-title>Pay when you collect</span>
+              <span class="method-text">By cash or card, as usual</span>
+            </label>
+          </div>
+          <p class="sandbox" data-sandbox hidden>Test mode: payments use PayPal's sandbox, so no real money is taken.</p>
+        </fieldset>
+
         <div class="turnstile" data-turnstile></div>
 
         <div class="submit">
           <p class="total" aria-live="polite"><strong data-total-meals>0 meals</strong> · <span data-total-price>£0.00</span> to pay <span data-pay-when>on collection</span></p>
           <button class="send" type="submit">Send my order</button>
         </div>
+        <div class="paypal-buttons" data-paypal-buttons hidden></div>
         <p class="error form-error" data-error="form" role="alert" hidden></p>
 
         <p class="privacy">
@@ -97,7 +118,7 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
       </form>
 
       {paypal.length > 0 && (
-        <p class="paypal">Prefer to pay in advance? {paypal.map((o, i) => <>{i > 0 && ' · '}<a href={o.url} target="_blank" rel="noopener">{o.type} (PayPal)</a></>)}. Please still send this form so we know your order.</p>
+        <p class="paypal" data-paypal-links>Prefer to pay in advance? {paypal.map((o, i) => <>{i > 0 && ' · '}<a href={o.url} target="_blank" rel="noopener">{o.type} (PayPal)</a></>)}. Please still send this form so we know your order.</p>
       )}
     </div>
 
@@ -117,8 +138,8 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
 </section>
 
 <script>
-  type Status = { open: boolean; cutoff: string; siteKey: string };
-  declare global { interface Window { turnstile?: any } }
+  type Status = { open: boolean; cutoff: string; siteKey: string; payOnline: { clientId: string; mode: 'sandbox' | 'live' } | null };
+  declare global { interface Window { turnstile?: any; paypal?: any } }
 
   const money = (n: number) => `£${n.toFixed(2)}`;
 
@@ -134,6 +155,25 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
     });
   }
 
+  function loadPayPal(clientId: string): Promise<any> {
+    if (window.paypal) return Promise.resolve(window.paypal);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      // Pay Later is switched off: PayPal charges the charity more for it.
+      s.src = `https://www.paypal.com/sdk/js?${new URLSearchParams({ 'client-id': clientId, currency: 'GBP', intent: 'capture', components: 'buttons', 'disable-funding': 'paylater,credit' })}`;
+      s.async = true;
+      s.dataset.namespace = 'paypal';
+      s.onload = () => resolve(window.paypal);
+      s.onerror = reject;
+      document.head.append(s);
+    });
+  }
+
+  const post = async (url: string, body: unknown) => {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return res.json().catch(() => ({ ok: false, error: 'Sorry, something went wrong. Please try again.' }));
+  };
+
   function init() {
     const root = document.querySelector<HTMLElement>('[data-order-form]');
     if (!root || root.dataset.ready) return;
@@ -146,6 +186,7 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
     const show = (name: string) => ['open', 'closed', 'done'].forEach((p) => (panel(p).hidden = p !== name));
     let cutoff = root.dataset.cutoff ? new Date(root.dataset.cutoff).getTime() : 0;
     let widget: string | undefined;
+    let canPayOnline = false;
 
     // Close the form by itself at the deadline (and if the page was opened after it).
     const checkClosed = () => {
@@ -170,11 +211,15 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
         checkClosed();
         const ts = await loadTurnstile();
         widget = ts.render(root.querySelector('[data-turnstile]'), { sitekey: s.siteKey, theme: 'light', size: 'flexible' });
+        if (s.payOnline) await enablePayOnline(s.payOnline);
       })
       .catch(() => { /* Order service unreachable (e.g. local dev): keep the build-time state. */ });
 
     // Collection / delivery switch.
     const method = () => (form.querySelector<HTMLInputElement>('input[name="method"]:checked')?.value ?? 'collection');
+    const payNow = () => canPayOnline && form.querySelector<HTMLInputElement>('input[name="payment"]:checked')?.value === 'paypal';
+    const sendButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const paypalButtons = form.querySelector<HTMLElement>('[data-paypal-buttons]')!;
     const update = () => {
       const m = method();
       form.querySelectorAll<HTMLElement>('[data-method]').forEach((el) => (el.hidden = el.dataset.method !== m));
@@ -186,7 +231,11 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
       });
       form.querySelector('[data-total-meals]')!.textContent = `${meals} meal${meals === 1 ? '' : 's'}`;
       form.querySelector('[data-total-price]')!.textContent = money(price);
-      form.querySelector('[data-pay-when]')!.textContent = m === 'delivery' ? 'on delivery' : 'on collection';
+      form.querySelector('[data-pay-when]')!.textContent = payNow() ? 'now, online' : m === 'delivery' ? 'on delivery' : 'on collection';
+      form.querySelector('[data-later-title]')!.textContent = m === 'delivery' ? 'Pay on delivery' : 'Pay when you collect';
+      // Paying now: PayPal's buttons take the place of "Send my order".
+      sendButton.hidden = payNow();
+      paypalButtons.hidden = !payNow();
     };
     form.addEventListener('change', update);
     form.addEventListener('input', update);
@@ -209,33 +258,138 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
       });
     };
 
+    // The form's answers, with quantities only for the chosen method.
+    const collect = () => {
+      const data = Object.fromEntries(new FormData(form)) as Record<string, string>;
+      const m = method();
+      for (const k of Object.keys(data)) if (k.startsWith('qty-') && !form.querySelector(`[data-method="${m}"] [name="${k}"]`)) delete data[k];
+      return data;
+    };
+
+    const showDone = (out: any, email: string, paid: boolean) => {
+      const m = method();
+      root.querySelector('[data-ref]')!.textContent = out.reference;
+      root.querySelector('[data-done-summary]')!.textContent = paid
+        ? `${out.totalMeals} meal${out.totalMeals === 1 ? '' : 's'} for ${out.day}. You've paid ${out.total} online, so there's nothing to pay ${m === 'delivery' ? 'on delivery' : 'when you collect'}.`
+        : `${out.totalMeals} meal${out.totalMeals === 1 ? '' : 's'} for ${out.day}, ${out.total} to pay ${m === 'delivery' ? 'on delivery' : 'when you collect'}.`;
+      root.querySelector('[data-done-email]')!.textContent = out.emailed ? `We've emailed a confirmation to ${email}.` : '';
+      show('done');
+      panel('done').focus();
+      root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    // A refused order: field problems show beside the field; the message by the button is for anything else.
+    const showProblem = (out: any) => {
+      if (out.closed) { cutoff = 1; show('closed'); return; }
+      setErrors(out.fields, out.fields && Object.keys(out.fields).length ? 'Please check the highlighted details above.' : out.error);
+      (form.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus();
+    };
+
+    // Quick checks before PayPal's pop-up opens, so customers don't pay into a form with gaps.
+    // The Worker checks everything again properly.
+    const quickCheck = () => {
+      const data = collect();
+      const fields: Record<string, string> = {};
+      if (!Object.entries(data).some(([k, v]) => k.startsWith('qty-') && Number(v) > 0)) fields.items = 'Please choose how many meals you would like.';
+      if (!data.name?.trim()) fields.name = 'Please tell us your name.';
+      if ((data.phone?.match(/\d/g)?.length ?? 0) < 7) fields.phone = 'Please give a phone number we can call.';
+      if (method() === 'delivery') {
+        if (!data.address?.trim()) fields.address = 'Please give the delivery address.';
+        if (!data.postcode?.trim()) fields.postcode = 'Please give a full postcode, like S7 1FB.';
+      }
+      if (widget !== undefined && !data['cf-turnstile-response']) return { fields, message: "Please tick the \"I'm not a robot\" check box first." };
+      return Object.keys(fields).length ? { fields, message: 'Please check the highlighted details above.' } : null;
+    };
+
+    async function enablePayOnline(pay: NonNullable<Status['payOnline']>) {
+      let pp: any;
+      try {
+        pp = await loadPayPal(pay.clientId);
+      } catch {
+        return; // PayPal unreachable: customers can still pay on collection, as before.
+      }
+      const fieldset = form.querySelector<HTMLElement>('[data-pay]')!;
+      fieldset.querySelectorAll<HTMLInputElement>('input').forEach((i) => (i.disabled = false));
+      fieldset.hidden = false;
+      form.querySelector<HTMLElement>('[data-sandbox]')!.hidden = pay.mode !== 'sandbox';
+      const links = root.querySelector<HTMLElement>('[data-paypal-links]');
+      if (links) links.hidden = true;
+      root.querySelector('[data-pay-lede]')!.textContent = 'Pay online now, or by cash or card when you get your food.';
+      canPayOnline = true;
+      let email = '';
+      let refused = false;
+      await pp
+        .Buttons({
+          style: { layout: 'vertical', shape: 'pill', label: 'pay', height: 48 },
+          onClick: (_data: unknown, actions: any) => {
+            checkClosed();
+            const problem = panel('closed').hidden ? quickCheck() : { fields: {}, message: '' };
+            setErrors(problem?.fields, problem?.message);
+            if (problem) {
+              (form.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus();
+              return actions.reject();
+            }
+            return actions.resolve();
+          },
+          // Saves the order (unpaid) and starts a PayPal payment for the price the Worker works out.
+          createOrder: async () => {
+            refused = false;
+            const data = collect();
+            email = data.email ?? '';
+            try {
+              const out = await post('/api/order', data);
+              if (!out.ok || !out.paypalOrderId) {
+                refused = true;
+                showProblem(out);
+                throw new Error('Order refused');
+              }
+              return out.paypalOrderId;
+            } finally {
+              if (widget !== undefined) window.turnstile?.reset(widget);
+            }
+          },
+          // The customer paid in PayPal's pop-up: ask the Worker to take the money and confirm the order.
+          onApprove: async (data: { orderID: string }, actions: any) => {
+            paypalButtons.classList.add('busy');
+            try {
+              const out = await post('/api/order/pay', { paypalOrderId: data.orderID });
+              if (out.retry) return actions.restart();
+              if (out.ok) return showDone(out, email, out.paid);
+              setErrors({}, out.error);
+            } catch {
+              setErrors({}, "We couldn't reach our server to confirm your payment. Please don't pay again: contact us and we'll check.");
+            } finally {
+              paypalButtons.classList.remove('busy');
+            }
+          },
+          onCancel: () => setErrors({}, "Payment cancelled, so your order hasn't been sent. You can try again, or choose to pay when you get your food."),
+          onError: () => {
+            if (!refused) setErrors({}, "Sorry, the payment didn't go through and your order hasn't been sent. Please try again, or choose to pay when you get your food.");
+          },
+        })
+        .render(paypalButtons)
+        .catch(() => {
+          // Buttons couldn't load: fall back to paying on collection.
+          canPayOnline = false;
+          fieldset.hidden = true;
+        });
+      update();
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       checkClosed();
       if (!panel('closed').hidden) return;
-      const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-      const data = Object.fromEntries(new FormData(form));
-      // Only send quantities for the chosen method.
-      const m = method();
-      for (const k of Object.keys(data)) if (k.startsWith('qty-') && !form.querySelector(`[data-method="${m}"] [name="${k}"]`)) delete data[k];
+      // Pressing Enter while "Pay now" is chosen: point to PayPal's buttons instead.
+      if (payNow()) { setErrors({}, 'Please use the payment buttons below to pay and send your order.'); return; }
+      const button = sendButton;
+      const data = collect();
       button.disabled = true;
       button.textContent = 'Sending…';
       try {
-        const res = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        const out = await res.json().catch(() => ({ ok: false, error: 'Sorry, something went wrong. Please try again.' }));
-        if (out.ok) {
-          root.querySelector('[data-ref]')!.textContent = out.reference;
-          root.querySelector('[data-done-summary]')!.textContent = `${out.totalMeals} meal${out.totalMeals === 1 ? '' : 's'} for ${out.day}, ${out.total} to pay ${m === 'delivery' ? 'on delivery' : 'when you collect'}.`;
-          root.querySelector('[data-done-email]')!.textContent = out.emailed ? `We've emailed a confirmation to ${data.email}.` : '';
-          show('done');
-          panel('done').focus();
-          root.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          return;
-        }
-        if (out.closed) { cutoff = 1; show('closed'); return; }
-        // Field problems show beside the field; the message by the button is for anything else.
-        setErrors(out.fields, out.fields && Object.keys(out.fields).length ? 'Please check the highlighted details above.' : out.error);
-        (form.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus();
+        const out = await post('/api/order', data);
+        if (out.ok) return showDone(out, data.email, false);
+        showProblem(out);
       } catch {
         setErrors({}, "We couldn't reach our server. Please check your connection and try again.");
       } finally {
@@ -305,6 +459,11 @@ const contact = [site.phone && `call ${site.phone}`, site.email && `email ${site
   .send { font: 700 1.15rem var(--font); background: var(--darkred); color: var(--white); border: 0; border-radius: 999px; padding: .9rem 1.8rem; cursor: pointer; transition: transform .3s var(--ease-out), background .2s; }
   .send:hover { transform: translateY(-2px) rotate(-1deg); background: var(--red); }
   .send:disabled { opacity: .6; cursor: progress; transform: none; }
+  .paypal-buttons { max-width: 26rem; margin-left: auto; width: 100%; position: relative; z-index: 0; }
+  .paypal-buttons[hidden] { display: none; }
+  .paypal-buttons.busy { opacity: .5; pointer-events: none; }
+  .sandbox { margin: .75rem 0 0; font-size: .85rem; font-weight: 600; }
+  .send[hidden] { display: none; }
   .privacy { font-size: .8rem; margin: 0; max-width: 44rem; }
   .paypal { font-size: .85rem; margin-top: 1.5rem; }
   .big { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 700; line-height: 1.15; }

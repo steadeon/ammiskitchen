@@ -101,7 +101,7 @@ export const getSite = once(async (): Promise<Site> => {
       url: d.giftVoucher?.url ?? '',
       image: imageUrl(d.giftVoucher?.image, 800),
     },
-    features: { onlineOrdering: Boolean(d.features?.onlineOrdering) },
+    features: { onlineOrdering: Boolean(d.features?.onlineOrdering), onlinePayments: Boolean(d.features?.onlinePayments) },
   };
 });
 

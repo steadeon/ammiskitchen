@@ -6,7 +6,8 @@
 // Only names listed here are copied, and only when set. The file is git-ignored.
 import { writeFileSync } from 'node:fs';
 
-const names = ['SANITY_WRITE_TOKEN', 'RESEND_API_KEY', 'STAFF_EMAIL', 'TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY'];
+const names = ['SANITY_WRITE_TOKEN', 'RESEND_API_KEY', 'STAFF_EMAIL', 'TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY',
+  'PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_WEBHOOK_ID'];
 const secrets = Object.fromEntries(names.filter((n) => process.env[n]).map((n) => [n, process.env[n]]));
 writeFileSync('.worker-secrets.json', JSON.stringify(secrets));
 console.log(`[secrets] Prepared for the Worker: ${Object.keys(secrets).join(', ') || 'none'}`);

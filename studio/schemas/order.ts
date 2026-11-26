@@ -13,6 +13,7 @@ export const order = defineType({
   groups: [
     { name: 'order', title: 'Order', default: true },
     { name: 'customer', title: 'Customer' },
+    { name: 'payment', title: 'Payment' },
     { name: 'staff', title: 'Staff' },
   ],
   fields: [
@@ -27,13 +28,42 @@ export const order = defineType({
           { title: 'Packed', value: 'packed' },
           { title: 'Collected / delivered', value: 'done' },
           { title: 'Cancelled', value: 'cancelled' },
+          { title: 'Waiting for online payment', value: 'awaitingPayment' },
         ],
         layout: 'radio',
         direction: 'horizontal',
       },
       initialValue: 'new',
     }),
-    defineField({ name: 'paid', title: 'Paid', type: 'boolean', group: ['order', 'staff'], initialValue: false }),
+    defineField({
+      name: 'paid',
+      title: 'Paid',
+      description: 'Ticked by itself when a customer pays online. Tick it when someone pays on collection or delivery.',
+      type: 'boolean',
+      group: ['order', 'staff', 'payment'],
+      initialValue: false,
+    }),
+    defineField({
+      name: 'payment',
+      title: 'How they chose to pay',
+      type: 'string',
+      group: 'payment',
+      readOnly: true,
+      options: { list: [{ title: 'Online (PayPal or card)', value: 'paypal' }, { title: 'On collection / delivery', value: 'later' }] },
+    }),
+    defineField({ name: 'paidAmount', title: 'Amount paid online (£)', type: 'number', group: 'payment', readOnly: true, hidden: ({ document }) => document?.payment !== 'paypal' }),
+    defineField({ name: 'paidAt', title: 'Paid online at', type: 'datetime', group: 'payment', readOnly: true, hidden: ({ document }) => document?.payment !== 'paypal' }),
+    defineField({ name: 'refundedAt', title: 'Refunded in PayPal at', type: 'datetime', group: 'payment', readOnly: true, hidden: ({ document }) => !document?.refundedAt }),
+    defineField({
+      name: 'paypalCaptureId',
+      title: 'PayPal transaction ID',
+      description: 'Search for this in the charity\'s PayPal account to find the payment (e.g. to refund it).',
+      type: 'string',
+      group: 'payment',
+      readOnly: true,
+      hidden: ({ document }) => document?.payment !== 'paypal',
+    }),
+    defineField({ name: 'paypalOrderId', title: 'PayPal order ID', type: 'string', group: 'payment', readOnly: true, hidden: ({ document }) => document?.payment !== 'paypal' }),
     defineField({ name: 'reference', type: 'string', group: 'order', readOnly: true }),
     defineField({ name: 'takeawayDate', title: 'Takeaway Friday', type: 'date', group: 'order', options: { dateFormat: 'dddd D MMMM YYYY' } }),
     defineField({ name: 'menu', title: 'Set meal', type: 'string', group: 'order' }),
@@ -81,12 +111,13 @@ export const order = defineType({
     { title: 'Name', name: 'name', by: [{ field: 'name', direction: 'asc' }] },
   ],
   preview: {
-    select: { name: 'name', meals: 'totalMeals', method: 'method', reference: 'reference', status: 'status', date: 'takeawayDate' },
-    prepare: ({ name, meals, method, reference, status, date }) => ({
-      title: `${status === 'cancelled' ? '[Cancelled] ' : ''}${name ?? 'Order'}`,
+    select: { name: 'name', meals: 'totalMeals', method: 'method', reference: 'reference', status: 'status', date: 'takeawayDate', paid: 'paid', payment: 'payment' },
+    prepare: ({ name, meals, method, reference, status, date, paid, payment }) => ({
+      title: `${status === 'cancelled' ? '[Cancelled] ' : status === 'awaitingPayment' ? '[Not paid yet] ' : ''}${name ?? 'Order'}`,
       subtitle: [
         meals != null ? `${meals} meal${meals === 1 ? '' : 's'}` : '',
         method === 'delivery' ? 'Delivery' : 'Collection',
+        payment === 'paypal' && paid ? 'Paid online' : '',
         date ? new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '',
         reference,
       ]

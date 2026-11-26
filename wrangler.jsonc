@@ -15,7 +15,8 @@
   "previews": {
     "vars": {
       "EMAIL_FROM": "",
-      "ORDER_RETENTION_DAYS": "90"
+      "ORDER_RETENTION_DAYS": "90",
+      "PAYPAL_ENV": "sandbox"
     }
   },
   // Once a day (4am UTC), delete orders older than ORDER_RETENTION_DAYS. Every 15 minutes, check
@@ -24,13 +25,16 @@
   "triggers": { "crons": ["0 4 * * *", "*/15 * * * *"] },
   "observability": { "enabled": true },
   // Plain (non-secret) settings. Secrets are added in Cloudflare: SANITY_WRITE_TOKEN,
-  // TURNSTILE_SECRET_KEY, RESEND_API_KEY (see README "Takeaway ordering").
+  // TURNSTILE_SECRET_KEY, RESEND_API_KEY, PAYPAL_* (see README "Takeaway ordering").
   "vars": {
     // Who order emails come from. Empty = Resend's test sender, which can only email the Resend
     // account's own address (fine for testing). At go-live, verify the domain in Resend and set
     // this to "Ammi's Kitchen <orders@ammiskitchensheffield.org>".
     "EMAIL_FROM": "",
     // How long orders are kept after their takeaway date.
-    "ORDER_RETENTION_DAYS": "90"
+    "ORDER_RETENTION_DAYS": "90",
+    // "sandbox" = PayPal's test system (pretend money). Change to "live" only once the live PayPal
+    // keys are in Cloudflare (PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_WEBHOOK_ID).
+    "PAYPAL_ENV": "sandbox"
   }
 }

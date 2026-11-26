@@ -14,6 +14,11 @@ export const FEATURES = {
     description:
       'The new takeaway order form on the Order page, and "Takeaway orders" in the Studio. While it is off, the Order page shows the PayPal and email ordering, as on the old website.',
   },
+  payments: {
+    title: 'Pay online',
+    description:
+      'Adds "Pay now" to the online order form: customers can pay with PayPal or a debit/credit card when they order, or still choose to pay on collection or delivery. Needs the online order form too.',
+  },
 } as const;
 
 export type Feature = keyof typeof FEATURES;
