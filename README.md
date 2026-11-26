@@ -117,7 +117,8 @@ They pay by cash or card on collection or delivery, or (beta) online with PayPal
   2. In that app, *Add Webhook*: URL `https://<site>/api/paypal/webhook`, events *Checkout order approved*,
      *Payment capture completed*, *Payment capture denied* and *Payment capture refunded*. Copy the **Webhook ID**.
   3. In Cloudflare → ammiskitchen → Settings → Build → Variables and secrets, add `PAYPAL_CLIENT_ID`,
-     `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID` (type Secret), then redeploy. `GET /api/order` shows
+     `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID` (type Secret), then redeploy. Production and branch previews
+     have separate lists of build secrets: add them to the preview's list too to test on a preview. `GET /api/order` shows
      `"paypal": "sandbox"` under `configured` when they've arrived.
   4. Test with a sandbox *personal* account (*Testing Tools → Sandbox Accounts*) or one of PayPal's test cards.
   5. Going live: repeat 1–3 on the *Live* tab, set `PAYPAL_ENV` to `"live"` in `wrangler.jsonc`, and ask PayPal for
