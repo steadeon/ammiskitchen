@@ -172,9 +172,9 @@ New features can be tried out on the real website before everyone sees them. The
 - **Switch one on for everyone:** tick it in the Studio under *Contact details & shared text → New
   features* and publish. The site rebuilds in a minute or two.
 - **What the order form switch covers:** the form and "Order online" button on the Order page (otherwise the
-  old PayPal / email ordering shows), *Takeaway orders* in the Studio (same browser cookie, or switched on for
-  everyone), and the Worker: `/api/order` refuses orders from anyone without the beta cookie while it's off,
-  and the order-closed spreadsheet email is only sent if there are orders.
+  old PayPal / email ordering shows) and the Worker: `/api/order` refuses orders from anyone without the beta cookie while it's off,
+  and the order-closed spreadsheet email is only sent if there are orders. *Takeaway orders* in the Studio
+  is always shown, since only signed-in staff can open the Studio.
 - **How it works:** a tiny script at the top of every page (`src/layouts/Base.astro`) reads the cookie and
   sets `data-beta` on the page, and CSS shows or hides anything marked `data-beta-only="…"` or
   `data-beta-hide="…"`, before the page is drawn, so nothing flashes up.
