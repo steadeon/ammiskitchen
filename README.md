@@ -115,7 +115,7 @@ They pay by cash or card on collection or delivery, or (beta) online with PayPal
   1. Log in at [developer.paypal.com](https://developer.paypal.com) with the charity's PayPal business login →
      *Apps & Credentials* → *Sandbox* → *Create App* (type: Merchant). Copy the **Client ID** and **Secret**.
   2. In that app, *Add Webhook*: URL `https://<site>/api/paypal/webhook`, events *Checkout order approved*,
-     *Payment capture completed* and *Payment capture refunded*. Copy the **Webhook ID**.
+     *Payment capture completed*, *Payment capture denied* and *Payment capture refunded*. Copy the **Webhook ID**.
   3. In Cloudflare → ammiskitchen → Settings → Build → Variables and secrets, add `PAYPAL_CLIENT_ID`,
      `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID` (type Secret), then redeploy. `GET /api/order` shows
      `"paypal": "sandbox"` under `configured` when they've arrived.

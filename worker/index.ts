@@ -372,6 +372,13 @@ async function paypalWebhook(request: Request, env: Env, ctx: ExecutionContext) 
         if (order) await finishPayment(env, order, event.resource, request, ctx);
         break;
       }
+      // A payment PayPal was still checking (pending) was refused in the end: note it for staff.
+      case 'PAYMENT.CAPTURE.DENIED': {
+        const id = event.resource.supplementary_data?.related_ids?.order_id;
+        const order = id ? await findByPayPalId(env, id) : null;
+        if (order && !order.paid) await sanityMutate(env, [{ patch: { id: order._id, set: { staffNotes: `PayPal refused this payment (transaction ${event.resource.id}). The customer hasn't paid.` } } }]);
+        break;
+      }
       // Refunded in the charity's PayPal account: show it in the Studio.
       case 'PAYMENT.CAPTURE.REFUNDED': {
         const captureId = event.resource.links?.find((l: { rel: string; href: string }) => l.rel === 'up')?.href?.split('/').pop();
